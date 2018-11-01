@@ -1,6 +1,7 @@
-module Def where
+module TLA.Def where
 
 open import Prelude.Vec public
+open import Prelude.Unit public
 open import Prelude.Nat public
 open import Prelude.Empty public
 open import Prelude.Product public
@@ -8,6 +9,7 @@ open import Prelude.Decidable public
 open import Prelude.Sum renaming (Either to _⊎_) public
 open import Prelude.Functor public
 open import Prelude.Equality public
+open import Prelude.List public hiding ([_])
 
 open import LTL.Core public
 open import LTL.Stateless public
@@ -17,7 +19,7 @@ open import Agda.Primitive public
 
 variable
   α β : Level
-  n k : Nat
+  n k m : Nat
 
 
 -- Non Termporal so as to be used by Actions.
@@ -25,13 +27,16 @@ System : Vec (Set α) (suc n) → Set α
 System (x ∷ []) = x
 System (x ∷ y ∷ xs) = x × System (y ∷ xs)
 
+toProd = System
 
+variable
+  vs vsA vsB :  System _
 
 record Action {α n} (vars : Vec (Set α) (suc n)) : Set (lsuc α) where
   field
-    cond : System vars → Set α
+    cond : (vs : System vars) → Set α
     -- First represent the current vars and the second, the next ones.
-    resp : System vars → System vars → Set α
+    resp : (vs : System vars) → (cnd : cond vs) → (nvs : System vars) → Set α
 
 open Action public
 
@@ -44,7 +49,7 @@ variable
 -- it is best though to return the identity on all the other cases.
 record ConAction {α n} {vars : Vec (Set α) (suc n)} (act : Action vars) : Set (lsuc α) where
   field
-    impl : (x : System vars) → (cond act) x → ∃ (λ nx → resp act x nx)
+    impl : (vs : System vars) → (cnd : (cond act) vs) → ∃ (λ nvs → resp act vs cnd nvs)
 open ConAction public
 
 
@@ -54,39 +59,53 @@ simpl cact x cnd = fst ((impl cact) x cnd)
 
 
 
-Spec : (vars : Vec (Set α) (suc n)) → (k : Nat) → Set (lsuc α)
-Spec {_} {_} vars k = Vec (Action vars) (suc k)
+Spec : (vars : Vec (Set α) (suc n)) → Set (lsuc α)
+Spec {_} {_} vars = List (Action vars)
 
 variable
-  spec specA specB : Spec _ _
+  spec specA specB : Spec _
   beh behA behB :  (System _) ʷ
 
 
-Vdecide : Vec (Set α) (suc n) → Set α
-Vdecide (x ∷ []) = Dec x
-Vdecide (x ∷ x₁ ∷ xs) = Dec x × Vdecide (x₁ ∷ xs)
+ConSpec : Spec {α} vars → Set (lsuc α)
+ConSpec [] = ⊤′
+ConSpec (act ∷ []) = ConAction act
+ConSpec (act ∷ spec@(_ ∷ _)) = ConAction act × ConSpec spec
 
-VdecideP : (c : Vec (Set α) (suc n)) → Vec (Set α) (suc n) → Vdecide c → Set α
-VdecideP (x ∷ []) (y ∷ []) (yes z) = y 
-VdecideP (x ∷ []) y (no z) = ⊥′
-VdecideP (x ∷ x₁ ∷ c) (y ∷ ys) (yes z , zs) = y ⊎ (VdecideP (x₁ ∷ c) ys zs)
-VdecideP (x ∷ x₁ ∷ c) (y ∷ ys) (no z , zs) = VdecideP (x₁ ∷ c) ys zs
+
+
+vDec : List (Set α) → Set α
+vDec [] = ⊤′
+vDec (x ∷ xs) = Dec x × vDec xs
+
+
+vP : (spec : Spec {α} vars) → (vs : System vars) → (nvs : System vars) →
+        let conds = fmap (λ sp → (cond sp) vs) spec
+        in vDec conds → Set α
+vP [] vs nvs x = ⊥′
+vP (act ∷ spec) vs nvs (yes x , snd) = resp act vs x nvs ⊎ vP spec vs nvs snd
+vP (act ∷ spec) vs nvs (no x , snd) = vP spec vs nvs snd
+  
+
+
+DecF : (spec : Spec {α} vars) → Set α
+DecF {vars = vars} spec =
+  (sys : System vars) →
+  let conds = fmap (λ sp → (cond sp) sys) spec
+  in vDec conds
 
 
 --The implementation permits stuttering.
 
-Restr : Spec {α} vars k → (System vars) → (System vars) → Set α
-Restr {vars = vars} spec sys nsys =
-  let conds = fmap (λ sp → (cond sp) sys) spec
-  in (vc : Vdecide conds) → 
-     let resps = fmap (λ sp → (resp sp) sys nsys) spec
-     in VdecideP conds resps vc ⊎ (sys ≡ nsys)
-                                   
+Restr : (spec : Spec {α} vars) → (System vars) → (System vars) → DecF spec → Set α
+Restr {vars = vars} spec sys nsys decF = vP spec sys nsys (decF sys) ⊎ (sys ≡ nsys)
 
 
--- TODO Can we simplify this?
-variable
-  TRestr : (spec : Spec vars k) → (beh : (System vars) ʷ) → Restr spec (beh n) (beh (suc n))
+
+TRestr : (spec : Spec {α} vars) → (beh : (System vars) ʷ) → DecF spec → (Set α) ʷ
+TRestr spec beh decF = ⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh) $ʷ ⟨ decF ⟩
+
+
 
 -- IMPORTANT Due to non-determinism , we can never have a specific behavior. We assume that any implementation that performs the actions
 -- of the specification, has behaviors that respect the temporal restriction.
