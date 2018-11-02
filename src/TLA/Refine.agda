@@ -24,13 +24,23 @@ record RefAction {α n k} {varsA : Vec (Set α) (suc n)} {varsB : Vec (Set α) (
     dom-embed : (vs : System varsB) → (cnd : cond ract vs) → cond actA (refm vs)
     range-embed : (vs : System varsB) → (nvs : System varsB) → (cnd : cond ract vs)
                   → (cndA : cond actA (refm vs)) → (rsp : resp ract vs cnd nvs)
-                  → (refm vs ≡ refm nvs) ⊎ resp actA (refm vs) cndA (refm nvs)
+                  → resp actA (refm vs) cndA (refm nvs)
 open RefAction public
 
 
 
+record RefStAction {α n k} {varsA : Vec (Set α) (suc n)} {varsB : Vec (Set α) (suc k)}
+                 (refm : System varsB → System varsA) : Set (lsuc α) where
+  field
+    ract : Action varsB
+    isConst : (vs : System varsB) → (nvs : System varsB) → (cnd : cond ract vs)
+              → (rsp : resp ract vs cnd nvs)
+              → refm vs ≡ refm nvs
+open RefStAction public
+
+
 RefSpec : (refm : System {α} varsB → System {α} varsA) → (spec : Spec varsA) → Set (lsuc α) 
-RefSpec {varsB = varsB} refm [] = ⊤′
+RefSpec {varsA = varsA} {varsB = varsB} refm [] = List (RefStAction {varsA = varsA} {varsB = varsB} refm)
 RefSpec {varsB = varsB} refm (act ∷ spec)
   = List (RefAction {varsB = varsB} refm act) × RefSpec {varsB = varsB} refm spec
 
@@ -39,7 +49,7 @@ variable
   refSp : RefSpec {varsA = _} {varsB = _} _ _
 
 eSp : {refm : System varsB → System varsA} → RefSpec {varsA = varsA} {varsB = varsB} refm spec → Spec varsB
-eSp {spec = []} rsp = [] 
+eSp {spec = []} rsp = map ract rsp
 eSp {spec = act ∷ spec} (lra , rsp) =  (map ract lra) ++ eSp rsp
 
 
@@ -47,26 +57,35 @@ trefm : (refm : System varsB → System varsA) → (System varsB)ʷ → (System 
 trefm refm beh = ⟨ refm ⟩ $ʷ beh
 
 
+
+refStLemma : (refm : System varsB → System varsA) → (beh : (System varsB)ʷ) → (refSp : RefSpec {varsA = varsA} {varsB = varsB} refm []) → (decFp : DecF (eSp refSp)) 
+             → [ TRestr (eSp refSp) beh decFp ⇒ ⟨ _≡_ ⟩ $ʷ (⟨ refm ⟩ $ʷ beh) $ʷ (⟨ refm ⟩ $ʷ (○ beh)) ]
+refStLemma refm beh [] decFp n (left rst) = ⊥′-elim rst
+refStLemma refm beh (ract ∷ refSp) decFp n (left rst) with decFp (beh n) | refStLemma refm beh refSp (λ sys → snd (decFp sys)) n
+refStLemma refm beh (ract ∷ refSp) decFp n (left (left rst)) | yes d , snd | g = isConst ract (beh n) (beh (suc n)) d rst 
+refStLemma refm beh (ract ∷ refSp) decFp n (left (right rst)) | yes d , snd | g = g (left rst)
+refStLemma refm beh (ract ∷ refSp) decFp n (left rst) | no d , snd | g = g (left rst)
+refStLemma refm beh refSp decFp n (right rst) = cong refm rst
+
 --- Theorem
 --- A behavior beh induces a behavior ⟨ refm ⟩ $ʷ beh through the refinement mapping that respects the restrictions of the more abstract model.
 
-refTheorem : {refm : System varsB → System varsA} → {spec : Spec varsA} → {beh : (System varsB)ʷ} → {refSp : RefSpec {varsB = varsB} refm spec} → {decFp : DecF (eSp refSp)} → {decF : DecF spec}
+refTheorem : (refm : System varsB → System varsA) → (spec : Spec varsA) → (beh : (System varsB)ʷ) → (refSp : RefSpec {varsB = varsB} refm spec) → (decFp : DecF (eSp refSp)) → (decF : DecF spec)
              → [ TRestr (eSp refSp) beh decFp ⇒ TRestr spec ( ⟨ refm ⟩ $ʷ beh ) decF ]
-refTheorem {spec = []} n (left x) = ⊥′-elim x
-refTheorem {refm = refm} {[]} n (right rst) = right (cong refm rst)
-refTheorem {refm = refm} {act ∷ spec} {beh} {[] , refSp} {decFp} {decF} n rst with decF (refm (beh n)) | refTheorem {beh = beh} {refSp = refSp} {decFp} {λ sys → snd (decF sys)} n rst
-refTheorem {refm = refm} {act ∷ spec} {beh} {[] , refSp} {decFp} {decF} n rst | yes x , snd | left x₁ = left (right x₁) 
-refTheorem {refm = refm} {act ∷ spec} {beh} {[] , refSp} {decFp} {decF} n rst | yes x , snd | right x₁ = right x₁ 
-refTheorem {refm = refm} {act ∷ spec} {beh} {[] , refSp} {decFp} {decF} n rst | no x , snd | g = g
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n rst with decFp (beh n) | refTheorem {beh = beh} {refSp = fst , refSp} {λ sys → snd (decFp sys)} {decF} n
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n (left resp) | yes x₁ , snd1 | g with decF (refm (beh n))
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n (left (left resp)) | yes x₁ , snd1 | g | yes x₂ , snd₁ with range-embed x (beh n) (beh (suc n)) x₁ x₂ resp
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n (left (left resp)) | yes x₁ , snd1 | g | yes x₂ , snd₁ | left x₃ = right x₃
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n (left (left resp)) | yes x₁ , snd1 | g | yes x₂ , snd₁ | right x₃ = left (left x₃)
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n (left (right resp)) | yes x₁ , snd1 | g | yes x₂ , snd₁ = g (left resp)
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n (left resp) | yes x₁ , snd1 | g | no x₂ , snd₁ = ⊥-elim (x₂ (dom-embed x (beh n) x₁))
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n (right rst) | yes x₁ , snd1 | g = g (right rst)
-refTheorem {refm = refm} {act ∷ spec} {beh} {x ∷ fst , refSp} {decFp} {decF} n rst | no x₁ , snd1 | g = g rst 
+refTheorem refm [] beh refSp decFp decF n rst = right (refStLemma refm beh refSp decFp n rst)
+refTheorem refm (act ∷ spec) beh ([] , refSp) decFp decF n rst with decF (refm (beh n)) | refTheorem refm spec beh refSp decFp (λ sys → snd (decF sys)) n rst
+refTheorem refm (act ∷ spec) beh ([] , refSp) decFp decF n rst | yes d , snd | left ind = left (right ind)
+refTheorem refm (act ∷ spec) beh ([] , refSp) decFp decF n rst | yes d , snd | right ind = right ind
+refTheorem refm (act ∷ spec) beh ([] , refSp) decFp decF n rst | no d , snd | g = g
+refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (right rst) = right (cong refm rst)
+refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (left rst) with decFp (beh n) | refTheorem refm (act ∷ spec) beh (rs , refSp) (λ sys → snd (decFp sys)) decF n
+refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (left rst) | yes dra , sndra | g with decF (refm (beh n))
+refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (left (left rst)) | yes dra , sndra | g | yes da , snda = left (left (range-embed ract (beh n) (beh (suc n)) dra da rst))
+refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (left (right rst)) | yes dra , sndra | g | yes da , snda = g (left rst)
+refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (left rst) | yes dra , sndra | g | no da , snda =  ⊥-elim (da (dom-embed ract (beh n) dra))
+refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (left rst) | no dra , sndra | g = g (left rst)
+
+
 
 
 
