@@ -20,6 +20,9 @@ open import Agda.Primitive public
 variable
   α β : Level
   n k m : Nat
+  A : Set _
+  B : Set _
+  C : Set _
 
 
 -- Non Termporal so as to be used by Actions.
@@ -40,43 +43,73 @@ record Action {α n} (vars : Vec (Set α) (suc n)) : Set (lsuc α) where
 
 open Action public
 
+PAction : ∀{n} → (B : Set α) → (vars : Vec (Set α) (suc n)) → Set (lsuc α)
+PAction B vars = B → Action vars 
+
 variable
   vars varsA varsB : Vec (Set _) (suc _)
   act actA actB : Action _
+  pact pactA pactB : PAction _ _
 
 
--- The action will only be triggered when the condition is true, so there are multiple implementations with the same behavior,
--- it is best though to return the identity on all the other cases.
+Lf : (act : Action vars) → PAction ⊤ vars
+Lf act x = act
+
+
 record ConAction {α n} {vars : Vec (Set α) (suc n)} (act : Action vars) : Set (lsuc α) where
   field
     impl : (vs : System vars) → (cnd : (cond act) vs) → ∃ (λ nvs → resp act vs cnd nvs)
 open ConAction public
 
 
-simpl : ConAction {vars = vars} act → ((x : System vars) → (cond act) x → System vars)
-simpl cact x cnd = fst ((impl cact) x cnd)
+record PConAction {α n} {vars : Vec (Set α) (suc n)} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
+  field
+    par : B
+    impl : (vs : System vars) → (cnd : (cond (pact par)) vs) → ∃ (λ nvs → resp (pact par) vs cnd nvs)
+open PConAction public
 
 
+psimpl : (cn : PConAction {vars = vars} pact) → ((x : System vars) → (cond (pact (par cn))) x → System vars)
+psimpl cact x cnd = fst ((impl cact) x cnd)
 
+
+-- From the point of view of refinement as will be defined in Refine, f should be simple,
+-- like a projection. That way RefAction would suggest a local C that would be inversed to b ∈ B.
+data PSpec {α n} (B : Set α) (vars : Vec (Set α) (suc n)) : Set (lsuc α) where
+  spA : (act : Action vars) → (pspec : PSpec B vars) → PSpec B vars
+  spPA : ∀{C : Set α} → (f : B → C) → (pact : PAction C vars) → (pspec : PSpec B vars) → PSpec B vars
+  s∅ : PSpec B vars
 
 Spec : (vars : Vec (Set α) (suc n)) → Set (lsuc α)
-Spec {_} {_} vars = List (Action vars)
+Spec vars = List (Action vars)
 
 variable
+  pspec pspecA pspecB : PSpec _ _
   spec specA specB : Spec _
   beh behA behB :  (System _) ʷ
 
+-- Implementation of all (?) Actions. 
+ConPSpec : (spec : PSpec {α} B vars) → Set (lsuc α)
+ConPSpec (spA act spec) = ConAction act × ConPSpec spec 
+ConPSpec (spPA f pact spec) = PConAction pact × ConPSpec spec
+ConPSpec s∅ = ⊤′
 
-ConSpec : Spec {α} vars → Set (lsuc α)
+
+ConSpec : (spec : Spec {α} vars) → Set (lsuc α)
 ConSpec [] = ⊤′
-ConSpec (act ∷ []) = ConAction act
-ConSpec (act ∷ spec@(_ ∷ _)) = ConAction act × ConSpec spec
+ConSpec (act ∷ spec) = ConAction act × ConSpec spec
 
+
+apSp : (spec : PSpec B vars) → (b : B) → Spec vars
+apSp (spA act spec) b = act ∷ apSp spec b 
+apSp (spPA f pact spec) b = pact (f b) ∷ apSp spec b
+apSp s∅ b = []
 
 
 vDec : List (Set α) → Set α
 vDec [] = ⊤′
 vDec (x ∷ xs) = Dec x × vDec xs
+
 
 
 vP : (spec : Spec {α} vars) → (vs : System vars) → (nvs : System vars) →
@@ -94,6 +127,8 @@ DecF {vars = vars} spec =
   let conds = fmap (λ sp → (cond sp) sys) spec
   in vDec conds
 
+PDecF : (B : Set α) → PSpec {α} B vars → Set α
+PDecF B pspec = (b : B) → DecF (apSp pspec b)
 
 --The implementation permits stuttering.
 
@@ -101,17 +136,20 @@ Restr : (spec : Spec {α} vars) → (System vars) → (System vars) → DecF spe
 Restr {vars = vars} spec sys nsys decF = vP spec sys nsys (decF sys) ⊎ (sys ≡ nsys)
 
 
-
 TRestr : (spec : Spec {α} vars) → (beh : (System vars) ʷ) → DecF spec → (Set α) ʷ
 TRestr spec beh decF = ⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh) $ʷ ⟨ decF ⟩
 
 
 
--- IMPORTANT Due to non-determinism , we can never have a specific behavior. We assume that any implementation that performs the actions
--- of the specification, has behaviors that respect the temporal restriction.
--- The temporal restriction simply assumes that any action can be performed or none.
+FPTRestr : (B : Set α) → (pspec : PSpec {α} B vars) → (beh : (System vars) ʷ) → (pdecF : PDecF B pspec)
+           → ((b : B ) → (Set α)) ʷ
+FPTRestr B pspec beh pdecF n b = TRestr (apSp pspec b) beh (pdecF b) n
 
--- TRestr restricts the types of behaviors that are possible, thus allowing us to prove properties about them.
+
+PTRestr : (B : Set α) → (pspec : PSpec {α} B vars) → (beh : (System vars) ʷ) → PDecF B pspec → (Set α) ʷ
+PTRestr B pspec beh pdecF = ⟨ Σ B ⟩ $ʷ (FPTRestr B pspec beh pdecF)
+
+
 
 
 
