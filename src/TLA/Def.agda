@@ -23,6 +23,8 @@ variable
   A : Set _
   B : Set _
   C : Set _
+  D : Set _
+  E : Set _
 
 
 -- Non Termporal so as to be used by Actions.
@@ -62,23 +64,36 @@ record ConAction {α n} {vars : Vec (Set α) (suc n)} (act : Action vars) : Set 
 open ConAction public
 
 
+-- The system vars could determine par , check PRefActionC.
+-- This should be generalized.
 record PConAction {α n} {vars : Vec (Set α) (suc n)} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
   field
-    par : B
-    impl : (vs : System vars) → (cnd : (cond (pact par)) vs) → ∃ (λ nvs → resp (pact par) vs cnd nvs)
+    par : System vars → B
+    impl : (vs : System vars) → (cnd : (cond (pact (par vs))) vs) → ∃ (λ nvs → resp (pact (par vs)) vs cnd nvs)
 open PConAction public
 
 
-psimpl : (cn : PConAction {vars = vars} pact) → ((x : System vars) → (cond (pact (par cn))) x → System vars)
+psimpl : (cn : PConAction {vars = vars} pact) → ((x : System vars) → (cond (pact (par cn x))) x → System vars)
 psimpl cact x cnd = fst ((impl cact) x cnd)
 
 
+data PSet α : Set (lsuc α) where
+  _×ₚ_ : Set α → PSet α → PSet α
+  ⊤ₚ   : PSet α
+
+pToS : PSet α → Set α
+pToS (S ×ₚ pd) = S × pToS pd
+pToS ⊤ₚ = ⊤′
+
+variable
+  PA PB PC PD PE : PSet α
+
 -- From the point of view of refinement as will be defined in Refine, f should be simple,
 -- like a projection. That way RefAction would suggest a local C that would be inversed to b ∈ B.
-data PSpec {α n} (B : Set α) (vars : Vec (Set α) (suc n)) : Set (lsuc α) where
-  spA : (act : Action vars) → (pspec : PSpec B vars) → PSpec B vars
-  spPA : ∀{C : Set α} → (f : B → C) → (pact : PAction C vars) → (pspec : PSpec B vars) → PSpec B vars
-  s∅ : PSpec B vars
+data PSpec {α n} (vars : Vec (Set α) (suc n)) : (B : PSet α) → Set (lsuc α) where
+  spA : (act : Action vars) → (pspec : PSpec vars PB) → PSpec vars PB
+  spPA : (pact : PAction C vars) → (pspec : PSpec vars PB) → PSpec vars (C ×ₚ PB)
+  s∅ : PSpec vars ⊤ₚ
 
 Spec : (vars : Vec (Set α) (suc n)) → Set (lsuc α)
 Spec vars = List (Action vars)
@@ -88,10 +103,12 @@ variable
   spec specA specB : Spec _
   beh behA behB :  (System _) ʷ
 
--- Implementation of all (?) Actions. 
-ConPSpec : (spec : PSpec {α} B vars) → Set (lsuc α)
+-- Implementation of some Actions
+-- PSpec is assumed to be a subset of a PSpec.
+-- TODO How do we split a PSpec and how do we compose Specs?
+ConPSpec : (spec : PSpec {α} vars PB) → Set (lsuc α)
 ConPSpec (spA act spec) = ConAction act × ConPSpec spec 
-ConPSpec (spPA f pact spec) = PConAction pact × ConPSpec spec
+ConPSpec (spPA pact spec) = PConAction pact × ConPSpec spec
 ConPSpec s∅ = ⊤′
 
 
@@ -100,9 +117,9 @@ ConSpec [] = ⊤′
 ConSpec (act ∷ spec) = ConAction act × ConSpec spec
 
 
-apSp : (spec : PSpec B vars) → (b : B) → Spec vars
+apSp : (spec : PSpec vars PB) → (b : pToS PB) → Spec vars
 apSp (spA act spec) b = act ∷ apSp spec b 
-apSp (spPA f pact spec) b = pact (f b) ∷ apSp spec b
+apSp (spPA pact spec) b = pact (fst b) ∷ apSp spec (snd b)
 apSp s∅ b = []
 
 
@@ -127,8 +144,8 @@ DecF {vars = vars} spec =
   let conds = fmap (λ sp → (cond sp) sys) spec
   in vDec conds
 
-PDecF : (B : Set α) → PSpec {α} B vars → Set α
-PDecF B pspec = (b : B) → DecF (apSp pspec b)
+PDecF : (PB : PSet α) → PSpec {α} vars PB → Set α
+PDecF PB pspec = (b : pToS PB) → DecF (apSp pspec b)
 
 --The implementation permits stuttering.
 
@@ -141,13 +158,13 @@ TRestr spec beh decF = ⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh) $ʷ ⟨ decF ⟩
 
 
 
-FPTRestr : (B : Set α) → (pspec : PSpec {α} B vars) → (beh : (System vars) ʷ) → (pdecF : PDecF B pspec)
-           → ((b : B ) → (Set α)) ʷ
+FPTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → (pdecF : PDecF PB pspec)
+           → ((b : pToS PB ) → (Set α)) ʷ
 FPTRestr B pspec beh pdecF n b = TRestr (apSp pspec b) beh (pdecF b) n
 
 
-PTRestr : (B : Set α) → (pspec : PSpec {α} B vars) → (beh : (System vars) ʷ) → PDecF B pspec → (Set α) ʷ
-PTRestr B pspec beh pdecF = ⟨ Σ B ⟩ $ʷ (FPTRestr B pspec beh pdecF)
+PTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → PDecF PB pspec → (Set α) ʷ
+PTRestr PB pspec beh pdecF = ⟨ Σ (pToS PB) ⟩ $ʷ (FPTRestr PB pspec beh pdecF)
 
 
 

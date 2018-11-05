@@ -28,14 +28,21 @@ record RefAction {α n k} {varsA : Vec (Set α) (suc n)} {varsB : Vec (Set α) (
 open RefAction public
 
 
+record PRefActionC {α n k} {varsA : Vec (Set α) (suc n)} {varsB : Vec (Set α) (suc k)}
+                 {C : Set α} (refm : System varsB → System varsA) (pactA : PAction C varsA) : Set (lsuc α) where
+  field
+    par : System varsB → C
+    ract : Action varsB
+    dom-embed : (vs : System varsB) → (cnd : cond ract vs) → cond (pactA (par vs)) (refm vs)
+    range-embed : (vs : System varsB) → (nvs : System varsB) → (cnd : cond ract vs)
+                  → (cndA : cond (pactA (par vs)) (refm vs)) → (rsp : resp ract vs cnd nvs)
+                  → resp (pactA (par vs)) (refm vs) cndA (refm nvs)
+open PRefActionC public
 
-PRefAction : (B : Set α) → (f : B → C) → (refm : System {α} varsB → System {α} varsA) → (pactA : PAction C varsA)
-             → Set (lsuc α)
-PRefAction {varsB = varsB} B f refm pactA = (b : B) → RefAction {varsB = varsB} refm (pactA (f b))
 
-PRefActionC : C → (refm : System {α} varsB → System {α} varsA) → (pactA : PAction C varsA)
+PRefAction : (B : Set α) → (refm : System {α} varsB → System {α} varsA) → (pactA : PAction C varsA)
              → Set (lsuc α)
-PRefActionC {varsB = varsB} c refm pactA = RefAction {varsB = varsB} refm (pactA c)
+PRefAction {varsB = varsB} B refm pactA = (b : B) → PRefActionC {varsB = varsB} refm pactA
 
 
 record RefStAction {α n k} {varsA : Vec (Set α) (suc n)} {varsB : Vec (Set α) (suc k)}
@@ -47,11 +54,9 @@ record RefStAction {α n k} {varsA : Vec (Set α) (suc n)} {varsB : Vec (Set α)
               → refm vs ≡ refm nvs
 open RefStAction public
 
-
-PRefStAction : (B : Set α) → (refm : System {α} varsB → System {α} varsA) → Set (lsuc α)
+PRefStAction : (B : Set α) → (refm : System {α} varsB → System {α} varsA)
+               → Set (lsuc α)
 PRefStAction {varsA = varsA} {varsB = varsB} B refm = (b : B) → RefStAction {varsA = varsA} {varsB = varsB} refm
-
-
 
 
 RefSpec : (refm : System {α} varsB → System {α} varsA) → (spec : Spec varsA) → Set (lsuc α) 
@@ -60,22 +65,52 @@ RefSpec {varsB = varsB} refm (act ∷ spec)
   = List (RefAction {varsB = varsB} refm act) × RefSpec {varsB = varsB} refm spec
 
 
-data PRefSpec {α n k varsB varsA B} (refm : System {α} {n} varsB → System {α} {k} varsA)
-              : (pspec : PSpec B varsA) → Set (lsuc α) where
-  rfA : ∀{act pspec} → RefAction {varsB = varsB} refm act → PRefSpec {varsB = varsB} refm pspec
-        → PRefSpec refm (spA act pspec)
-  rfPA : ∀{C f pact pspec} → PRefAction {C = C} {varsB = varsB} B f refm pact → PRefSpec {varsB = varsB} refm pspec
-         → PRefSpec refm (spPA f pact pspec)
-  rfPAC : ∀{C c f pact pspec} → PRefActionC {C = C} {varsB = varsB} c refm pact → PRefSpec {varsB = varsB} refm pspec
-          → PRefSpec refm (spPA f pact pspec)
-  rf∅ : PRefSpec refm s∅
-
 variable
   refSp : RefSpec {varsA = _} {varsB = _} _ _
+
+
 
 exSp : {refm : System varsB → System varsA} → RefSpec {varsA = varsA} {varsB = varsB} refm spec → Spec varsB
 exSp {spec = []} rsp = map ract rsp
 exSp {spec = act ∷ spec} (lra , rsp) =  (map ract lra) ++ exSp rsp
+
+
+
+
+data PRefSpec {α n k varsA varsB} (refm : System {α} {n} varsB → System {α} {k} varsA)
+              : ∀{PB} (PE : PSet α) (pspec : PSpec varsA PB) → Set (lsuc α) where
+  rfAm : ∀{PB act pspec} → (rct : RefAction {varsB = varsB} refm act) → (prsp : PRefSpec {varsB = varsB} refm {PB = PB} PE (spA act pspec))
+         → PRefSpec refm PE (spA act pspec)
+  rfA : ∀{PB act pspec} → (rct : RefAction {varsB = varsB} refm act) → (prsp : PRefSpec {varsB = varsB} refm {PB = PB} PE pspec)
+        → PRefSpec refm PE (spA act pspec)
+  rfPACm : ∀{C pact pspec} → (rpctC : PRefActionC {varsB = varsB} refm pact)
+           → (prsp : PRefSpec {varsB = varsB} refm PE (spPA pact pspec)) → PRefSpec refm PE (spPA {C = C} {PB = PB} pact pspec)
+  rfPAC : ∀{C pact pspec} → (rpctC : PRefActionC {varsB = varsB} refm pact)
+          → (prsp : PRefSpec {varsB = varsB} refm {PB = PB} PE pspec) → PRefSpec refm PE (spPA {C = C} pact pspec)
+  rfPAm : ∀{C D pact pspec} → (rpct : PRefAction {varsB = varsB} D refm pact)
+          → (prsp : PRefSpec {varsB = varsB} refm PE (spPA pact pspec)) → PRefSpec refm {PB = (C ×ₚ PB)} (D ×ₚ PE) (spPA pact pspec)
+  rfPA : ∀{C D pact pspec} → (rpct : PRefAction {varsB = varsB} D refm pact)
+         → (prsp : PRefSpec {varsB = varsB} refm {PB = PB} PE pspec) → PRefSpec refm {PB = (C ×ₚ PB)} (D ×ₚ PE) (spPA pact pspec)
+  rfStA : (rfSt : RefStAction {varsA = varsA} {varsB = varsB} refm)
+          → (prsp : PRefSpec {varsA = varsA} {varsB = varsB} refm PE s∅) → PRefSpec refm PE s∅
+  rfPStA : (rfSt : PRefStAction {varsA = varsA} {varsB = varsB} D refm)
+           → (prsp : PRefSpec {varsA = varsA} {varsB = varsB} refm PE s∅) → PRefSpec refm (D ×ₚ PE) s∅
+  rf∅ : PRefSpec refm ⊤ₚ s∅
+
+
+
+exPSp : {refm : System varsB → System varsA} → PRefSpec {varsA = varsA} {varsB = varsB} refm PE pspec
+        → PSpec varsB PE
+exPSp {pspec = spA act pspec} (rfAm rct rsp) = spA (ract rct) (exPSp rsp)
+exPSp {pspec = spA act pspec} (rfA rct rsp) = spA (ract rct) (exPSp rsp)
+exPSp {pspec = spPA pact pspec} (rfPACm rpctC rsp) = spA (ract rpctC) (exPSp rsp)
+exPSp {pspec = spPA pact pspec} (rfPAC rpctC rsp) = spA (ract rpctC) (exPSp rsp)
+exPSp {pspec = spPA pact pspec} (rfPAm rpct rsp) = spPA (λ k → ract (rpct k)) (exPSp rsp)
+exPSp {pspec = spPA pact pspec} (rfPA rpct rsp) = spPA (λ k → ract (rpct k)) (exPSp rsp)
+exPSp {pspec = s∅} (rfStA rfSt rsp) = spA (ract rfSt) (exPSp rsp)
+exPSp {pspec = s∅} (rfPStA prfSt rsp) = spPA (λ k → ract (prfSt k)) (exPSp rsp)
+exPSp {pspec = s∅} rf∅ = s∅
+
 
 
 trefm : (refm : System varsB → System varsA) → (System varsB)ʷ → (System varsA)ʷ
@@ -112,8 +147,12 @@ refTheorem refm (act ∷ spec) beh (ract ∷ rs , refSp) decFp decF n (left rst)
 
 
 
-
-
+refPTheorem : (refm : System varsB → System varsA) → (pspec : PSpec varsA PB) → (beh : (System varsB)ʷ)
+              → (prefSp : PRefSpec {varsB = varsB} refm PE pspec) → (pdecFp : PDecF PE (exPSp prefSp)) → (pdecF : PDecF PB pspec)
+              → [ PTRestr PE (exPSp prefSp) beh pdecFp ⇒ PTRestr PB pspec ( ⟨ refm ⟩ $ʷ beh ) pdecF ]
+refPTheorem refm (spA act pspec) beh prefSp pdecFp pdecF n x = {!!}
+refPTheorem refm (spPA pact pspec) beh prefSp pdecFp pdecF n x = {!!}
+refPTheorem refm s∅ beh prefSp pdecFp pdecF n x = {!!} -- unit , right (refStLemma refm beh {!!} {!!} {!!} {!!})
 
 
 
