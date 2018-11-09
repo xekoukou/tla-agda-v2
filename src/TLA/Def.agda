@@ -163,7 +163,12 @@ DecF {vars = vars} spec =
 
 
 PDecF : (PB : PSet α) → PSpec {α} vars PB → Set α
-PDecF PB pspec = (b : pToS PB) → DecF (apSp pspec b)
+PDecF {vars = vars} (B ×ₚ PB) (spPA pact pspec) = ((b : B) → (sys : System vars) → Dec (cond (pact b) sys)) × PDecF PB pspec
+PDecF ⊤ₚ s∅ = ⊤′
+
+apB : (b : pToS PB) → PDecF PB pspec → DecF (apSp pspec b)
+apB {PB = B ×ₚ PB} {pspec = spPA pact pspec} (b , pb) pdecF sys = (fst pdecF) b sys , apB pb (snd pdecF) sys
+apB {PB = ⊤ₚ} {pspec = s∅} unit pdecF = λ sys → unit
 
 GDecF : (PB : PSet α) → GSpec {α} vars PB → Set α
 GDecF PB (gsp sp psp) = DecF sp × PDecF PB psp
@@ -181,7 +186,7 @@ TRestr spec beh decF = ⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh) $ʷ ⟨ decF ⟩
 
 FPTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → (pdecF : PDecF PB pspec)
            → ((b : pToS PB ) → (Set α)) ʷ
-FPTRestr B pspec beh pdecF n b = TRestr (apSp pspec b) beh (pdecF b) n
+FPTRestr B pspec beh pdecF n b = TRestr (apSp pspec b) beh (apB b pdecF) n
 
 
 PTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → PDecF PB pspec → (Set α) ʷ

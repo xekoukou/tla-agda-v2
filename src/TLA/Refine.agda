@@ -3,6 +3,7 @@ module TLA.Refine where
 open import TLA.Def
 
 open import Prelude.List hiding ([_])
+open import Prelude.Function
 
 data _∈ₗ_ {α} {A : Set α} (a : A) : List A → Set α where
   instance
@@ -163,8 +164,71 @@ refPTheorem refm (gsp spec s∅) beh (rfA ref) gdecFp gdecF n (left rst) = left 
 refPTheorem refm .(gsp _ s∅) beh (rfA ref) gdecFp gdecF n (right (_ , left empty)) = ⊥′-elim empty
 refPTheorem refm .(gsp _ s∅) beh (rfA ref) gdecFp gdecF n (right (_ , right eq)) = right (unit , right (cong refm eq))
 
-refPTheorem refm .(gsp _ s∅) beh (prfStA refSt gref) gdecFp gdecF n rst = {!!}
-refPTheorem refm .(gsp (_ ∷ _) s∅) beh (prfA prefA ind) gdecFp gdecF n rst = {!!}
+-- With is needed here to turm exPSp gref into (gsp _ _) for the reduction of GDecF function, the type of gdecFp
+refPTheorem refm (gsp spec s∅) beh (prfStA refSt gref) gdecFp gdecF n (left rst) with exPSp gref | refPTheorem refm (gsp spec s∅) beh gref
+refPTheorem refm (gsp spec s∅) beh (prfStA refSt gref) (decFp , _ , pdecFp) gdecF n (left rst) | gsp _ _ | g = g (decFp , pdecFp) gdecF n (left rst)
+
+
+refPTheorem refm gspec@(gsp _ s∅) beh (prfStA refSt gref) (decFp , ldecFp , pdecFp) gdecF n (right ((e , pe) , left rst)) with ldecFp e (beh n)
+refPTheorem refm (gsp spec s∅) beh (prfStA refSt gref) (decFp , ldecFp , pdecFp) gdecF n (right ((e , pe) , left (left resp))) | yes cnd = left (right (isConst (refSt e) (beh n) (beh (suc n)) cnd resp))
+
+-- We use 'with exPSp' to change the type of g with regards to (decFp , pdecFp) GDecF _ ?
+-- In the first case, beh could perform the retSt action because the condition is met, but another action is "chosen" instead.
+-- In the second case, the condition is not met and thus the action cannot be performed.
+-- In both cases, the proof is the same.
+refPTheorem refm gspec@(gsp _ s∅) beh (prfStA refSt gref) (decFp , ldecFp , pdecFp) gdecF n (right ((e , pe) , left (right rst))) | yes cnd with exPSp gref | refPTheorem refm gspec beh gref
+refPTheorem refm (gsp _ s∅) beh (prfStA refSt gref) (decFp , _ , pdecFp) gdecF n (right ((e , pe) , left (right rst))) | yes cnd | gsp _ _ | g = g (decFp , pdecFp) gdecF n (right (pe , left rst))
+
+refPTheorem refm gspec@(gsp _ s∅) beh (prfStA refSt gref) (decFp , ldecFp , pdecFp) gdecF n (right ((e , pe) , left rst)) | no cnd with exPSp gref | refPTheorem refm gspec beh gref
+refPTheorem refm (gsp _ s∅) beh (prfStA refSt gref) (decFp , ldecFp , pdecFp) gdecF n (right ((e , pe) , left rst)) | no cnd | gsp _ _ | g = g (decFp , pdecFp ) gdecF n (right (pe , left rst))
+
+
+refPTheorem refm .(gsp _ s∅) beh (prfStA refSt gref) gdecFp gdecF n (right ((e , pe) , right eq)) = left (right (cong refm eq))
+
+-- With is needed here to turm exPSp gref into (gsp _ _) for the reduction of GDecF function, the type of gdecFp
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) gdecFp gdecF n (left rst) with exPSp gref | refPTheorem refm (gsp (actA ∷ spec) s∅) beh gref
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) (decFp , _ , pdecFp) gdecF n (left rst) | gsp _ _ | g = g (decFp , pdecFp) gdecF n (left rst)
+
+-- All withs in this case are used to reduce the types. This is the same proof as in the previous step.
+-- Since we have (left rst) , we can prove that beh obeys all the restrictions of the other actions, ignoring actA.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _ ) n (left rst) with exPSp gref | refPTheorem refm (gsp spec s∅) beh gref 
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _ ) n (left rst) | gsp _ _ | g with decF (refm (beh n)) | g (decFp , pdecFp) ((λ sys → snd (decF sys)) , unit) n (left rst)
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _ ) n (left rst) | gsp _ _ | g | yes da , snda | left (left gg) = left (left (right gg))
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _ ) n (left rst) | gsp _ _ | g | yes da , snda | left (right eq) = left (right eq) 
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _ ) n (left rst) | gsp _ _ | g | yes da , snda | right (_ , left empty) = ⊥′-elim empty
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _ ) n (left rst) | gsp _ _ | g | yes da , snda | right (_ , right eq) = left (right eq)
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _ ) n (left rst) | gsp _ _ | g | no da , snda | gg = gg
+
+-- same as before expect that now , we do have the possibility of prefA happening because rst is PTRestr.
+-- since pspec is s∅, as before we need to show that TRestr holds.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) gdecFp (decF , _) n (right ((e , pe) , rst)) with exPSp gref | refPTheorem refm (gsp (actA ∷ spec) s∅) beh gref
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g with decF (refm (beh n)) | ldecFp e (beh n) | g (decFp , pdecFp) (decF , unit) n
+-- the paction is selected from rst.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left (left rst))) | gsp _ _ | g | yes da , snda | yes dfa | gg = left (left (left (range-embed (prefA e) (beh n) (beh (suc n)) dfa da rst)))
+-- the paction is not selected from rst.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left (right rst))) | gsp _ _ | g | yes da , snda | yes dfa | gg = gg (right (pe , left rst))
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | no da , snda | yes dfa | gg = ⊥-elim (da (dom-embed (prefA e) (beh n) dfa))
+-- rst cannot select it because the cnd is not met.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | da , snda | no dfa | gg = gg (right (pe , left rst))
+
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (left gref)) (decFp , _ , pdecFp) (decF , _) n (right ((e , pe) , right eq)) | gsp _ _ | g = left (right (cong refm eq))
+
+-- same as before , but the next step does not have actA, so minor changes.
+----------------------------------------
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) gdecFp (decF , _) n (right ((e , pe) , rst)) with exPSp gref | refPTheorem refm (gsp spec s∅) beh gref
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g  with decF (refm (beh n)) | ldecFp e (beh n) | g (decFp , pdecFp) ((λ sys → snd (decF sys)) , unit) n
+-- the paction is selected from rst.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left (left rst))) | gsp _ _ | g | yes da , snda | yes dfa | gg = left (left (left (range-embed (prefA e) (beh n) (beh (suc n)) dfa da rst)))
+-- the paction is not selected from rst.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left (right rst))) | gsp _ _ | g | yes da , snda | yes dfa | gg
+  = case gg (right (pe , left rst)) of λ { (left (left x)) → left (left (right x)) ; (left (right x)) → left (right x) ; (right x) → right x}
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | no da , snda | yes dfa | gg = ⊥-elim (da (dom-embed (prefA e) (beh n) dfa))
+-- rst cannot select it because the cnd is not met.
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | da , snda | no dfa | gg = {!!} -- gg (right (pe , left rst))
+
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _) n (right ((e , pe) , right eq)) | gsp _ _ | g = left (right (cong refm eq))
+
+
 refPTheorem refm .(gsp _ (spPA _ _)) beh (rfpA refPA ind) gdecFp gdecF n rst = {!!}
 refPTheorem refm .(gsp _ (spPA _ _)) beh (prfpA prefPA ind) gdecFp gdecF n rst = {!!}
 
