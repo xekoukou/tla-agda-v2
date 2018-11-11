@@ -224,13 +224,32 @@ refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp
   = case gg (right (pe , left rst)) of λ { (left (left x)) → left (left (right x)) ; (left (right x)) → left (right x) ; (right x) → right x}
 refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | no da , snda | yes dfa | gg = ⊥-elim (da (dom-embed (prefA e) (beh n) dfa))
 -- rst cannot select it because the cnd is not met.
-refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | da , snda | no dfa | gg = {!!} -- gg (right (pe , left rst))
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | yes x , snda | no dfa | gg
+  = case gg (right (pe , left rst)) of λ { (left (left x)) → left (left (right x))
+                                         ; (left (right x)) → left (right x)
+                                         ; (right x) → right x}
+refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , ldecFp , pdecFp) (decF , _) n (right ((e , pe) , left rst)) | gsp _ _ | g | no x , snda | no dfa | gg = gg (right (pe , left rst))
 
 refPTheorem refm (gsp (actA ∷ spec) s∅) beh (prfA prefA (right gref)) (decFp , _ , pdecFp) (decF , _) n (right ((e , pe) , right eq)) | gsp _ _ | g = left (right (cong refm eq))
 
 
-refPTheorem refm .(gsp _ (spPA _ _)) beh (rfpA refPA ind) gdecFp gdecF n rst = {!!}
-refPTheorem refm .(gsp _ (spPA _ _)) beh (prfpA prefPA ind) gdecFp gdecF n rst = {!!}
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) (decFp , epdecFp) (decF , bpdecF) n (left rst) with exPSp gref | refPTheorem refm (gsp spec (spPA pact pref)) beh gref
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) (decFp , epdecFp) (decF , bpdecF) n (left rst) | gsp _ _ | g with decFp (beh n) | g ((λ sys → snd (decFp sys)) , epdecFp)
+-- rst selects the action
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) (decFp , epdecFp) (decF , ldecF , pdecF) n (left (left (left rst))) | gsp _ _ | g | yes da , snda | gg = {!!} -- right (((par refPA) (beh n) , {!!}) , {!!})
+-- rst selects the inductive step
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) (decFp , epdecFp) (decF , bpdecF) n (left (left (right rst))) | gsp _ _ | g | yes da , snda | gg = {!!}
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) (decFp , epdecFp) (decF , bpdecF) n (left (right rst)) | gsp _ _ | g | yes da , snda | gg = left (right (cong refm rst))
+-- The absence of the condition limits the proof to the inductive step.
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) (decFp , epdecFp) (decF , bpdecF) n (left (left rst)) | gsp _ _ | g | no da , snda | gg = {!!}
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) (decFp , epdecFp) (decF , bpdecF) n (left (right rst)) | gsp _ _ | g | no da , snda | gg = left (right (cong refm rst))
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (left gref)) gdecFp (decF , ldecF , pdecF) n (right rst) = {!!}
+
+
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (right gref)) gdecFp gdecF n (left rst) = {!!}
+refPTheorem refm (gsp spec (spPA pact pref)) beh (rfpA refPA (right gref)) gdecFp gdecF n (right rst) = {!!}
+
+refPTheorem refm (gsp spec (spPA pact pref)) beh (prfpA prefPA ind) gdecFp gdecF n rst = {!!}
 
 
 

@@ -65,7 +65,7 @@ record ConAction {α n} {vars : Vec (Set α) (suc n)} (act : Action vars) : Set 
 open ConAction public
 
 
--- The system vars could determine par , check PRefActionC.
+-- The system vars could determine par , check RefPAction.
 -- This should be generalized.
 record PConAction {α n} {vars : Vec (Set α) (suc n)} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
   field
@@ -147,6 +147,8 @@ vDec : List (Set α) → Set α
 vDec [] = ⊤′
 vDec (x ∷ xs) = Dec x × vDec xs
 
+
+
 vP : (spec : Spec {α} vars) → (vs : System vars) → (nvs : System vars) →
         let conds = fmap (λ sp → (cond sp) vs) spec
         in vDec conds → Set α
@@ -154,6 +156,9 @@ vP [] vs nvs x = ⊥′
 vP (act ∷ spec) vs nvs (yes x , snd) = resp act vs x nvs ⊎ vP spec vs nvs snd
 vP (act ∷ spec) vs nvs (no x , snd) = vP spec vs nvs snd
   
+
+
+
 
 DecF : (spec : Spec {α} vars) → Set α
 DecF {vars = vars} spec =
