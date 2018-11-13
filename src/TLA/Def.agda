@@ -9,6 +9,7 @@ open import Prelude.Decidable public
 open import Prelude.Sum renaming (Either to _⊎_) public
 open import Prelude.Functor public
 open import Prelude.Equality public
+open import Prelude.Maybe public
 open import Prelude.List public hiding ([_])
 
 open import LTL.Core public
@@ -55,14 +56,14 @@ variable
   pact pactA pactB : PAction _ _
 
 
--- 
--- PAtoA : PAction B vars → Action vars
--- cond (PAtoA {B = B} pa) sys = Σ B λ b → cond (pa b) sys
--- resp (PAtoA pa) sys = {!resp (pa (fst (cond (PAtoA pa)))) sys!} -- resp (pa b) sys cnd
--- 
+MPAction : ∀{n} → (B : Set α) → (vars : Vec (Set α) (suc n)) → Set (lsuc α)
+MPAction B vars = Maybe B → Action vars
 
-Lf : (act : Action vars) → PAction ⊤ vars
-Lf act x = act
+toMPA : PAction B vars → MPAction B vars
+cond (toMPA pa nothing) sys = ⊥′
+resp (toMPA pa nothing) vs nvs = ⊥′
+toMPA pa (just x) = pa x
+
 
 
 record ConAction {α n} {vars : Vec (Set α) (suc n)} (act : Action vars) : Set (lsuc α) where
@@ -71,8 +72,6 @@ record ConAction {α n} {vars : Vec (Set α) (suc n)} (act : Action vars) : Set 
 open ConAction public
 
 
--- The system vars could determine par , check RefPAction.
--- This should be generalized.
 record PConAction {α n} {vars : Vec (Set α) (suc n)} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
   field
     par : System vars → B
@@ -95,6 +94,10 @@ pToS ⊤ₚ = ⊤′
 
 variable
   PA PB PC PD PE : PSet α
+
+
+
+
 
 
 Spec : (vars : Vec (Set α) (suc n)) → Set (lsuc α)
@@ -122,6 +125,7 @@ variable
   gspec gspecA gspecB : GSpec _ _
   beh behA behB :  (System _) ʷ
 
+
 -- Implementation of some Actions
 -- PSpec is assumed to be a subset of a PSpec.
 -- TODO How do we split a PSpec and how do we compose Specs?
@@ -138,12 +142,14 @@ ConGSpec : (spec : GSpec {α} vars PB) → Set (lsuc α)
 ConGSpec (gsp sp psp) = ConSpec sp × ConPSpec psp
 
 
+
+
+
 apSp : (spec : PSpec vars PB) → (b : pToS PB) → Spec vars
 apSp (spPA pact spec) b = pact (fst b) ∷ apSp spec (snd b)
 apSp s∅ b = []
 
 
--- Is this needed ?
 apGSp : (spec : GSpec vars PB) → (b : pToS PB) → Spec vars
 apGSp (gsp sp psp) b = sp ++ (apSp psp b)
 
