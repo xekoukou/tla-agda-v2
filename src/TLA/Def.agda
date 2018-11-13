@@ -42,7 +42,7 @@ record Action {α n} (vars : Vec (Set α) (suc n)) : Set (lsuc α) where
   field
     cond : (vs : System vars) → Set α
     -- First represent the current vars and the second, the next ones.
-    resp : (vs : System vars) → (cnd : cond vs) → (nvs : System vars) → Set α
+    resp : (vs : System vars) → (nvs : System vars) → Set α
 
 open Action public
 
@@ -55,13 +55,19 @@ variable
   pact pactA pactB : PAction _ _
 
 
+-- 
+-- PAtoA : PAction B vars → Action vars
+-- cond (PAtoA {B = B} pa) sys = Σ B λ b → cond (pa b) sys
+-- resp (PAtoA pa) sys = {!resp (pa (fst (cond (PAtoA pa)))) sys!} -- resp (pa b) sys cnd
+-- 
+
 Lf : (act : Action vars) → PAction ⊤ vars
 Lf act x = act
 
 
 record ConAction {α n} {vars : Vec (Set α) (suc n)} (act : Action vars) : Set (lsuc α) where
   field
-    impl : (vs : System vars) → (cnd : (cond act) vs) → ∃ (λ nvs → resp act vs cnd nvs)
+    impl : (vs : System vars) → (cnd : (cond act) vs) → ∃ (λ nvs → resp act vs nvs)
 open ConAction public
 
 
@@ -70,7 +76,7 @@ open ConAction public
 record PConAction {α n} {vars : Vec (Set α) (suc n)} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
   field
     par : System vars → B
-    impl : (vs : System vars) → (cnd : (cond (pact (par vs))) vs) → ∃ (λ nvs → resp (pact (par vs)) vs cnd nvs)
+    impl : (vs : System vars) → (cnd : (cond (pact (par vs))) vs) → ∃ (λ nvs → resp (pact (par vs)) vs nvs)
 open PConAction public
 
 
@@ -148,94 +154,129 @@ vDec [] = ⊤′
 vDec (x ∷ xs) = Dec x × vDec xs
 
 
+pvDec : List (Σ (Set α) (λ B → (B → Set α))) → Set α
+pvDec [] = ⊤′
+pvDec ((B , Cnd) ∷ xs) = Dec (Σ B (λ b → Cnd b)) × pvDec xs
+
 
 vP : (spec : Spec {α} vars) → (vs : System vars) → (nvs : System vars) →
         let conds = fmap (λ sp → (cond sp) vs) spec
         in vDec conds → Set α
 vP [] vs nvs x = ⊥′
-vP (act ∷ spec) vs nvs (yes x , snd) = resp act vs x nvs ⊎ vP spec vs nvs snd
+vP (act ∷ spec) vs nvs (yes x , snd) = resp act vs nvs ⊎ vP spec vs nvs snd
 vP (act ∷ spec) vs nvs (no x , snd) = vP spec vs nvs snd
-  
+
+
+pcondf : (sys : System vars) → (pspec : PSpec {α} vars PB) → List (Σ (Set α) (λ B → (B → Set α)))
+pcondf {PB = (B ×ₚ PB)} sys (spPA pact pspec) = (B , (λ b → cond (pact b) sys)) ∷ pcondf sys pspec
+pcondf {PB = .⊤ₚ} sys s∅ = []
+
+
+pvP : (pspec : PSpec {α} vars PB) → (vs : System vars) → (nvs : System vars) →
+        let conds = pcondf vs pspec
+        in pvDec conds → Set α
+pvP (spPA pact pspec) vs nvs (yes (b , x) , ind) = resp (pact b) vs nvs ⊎ pvP pspec vs nvs ind
+pvP (spPA pact pspec) vs nvs (no x , ind) = pvP pspec vs nvs ind
+pvP s∅ vs nvs x = ⊥′
 
 
 
-
-DecF : (spec : Spec {α} vars) → Set α
-DecF {vars = vars} spec =
-  (sys : System vars) →
+DecF : (spec : Spec {α} vars) → System vars → Set α
+DecF {vars = vars} spec sys =
   let conds = fmap (λ sp → (cond sp) sys) spec
   in vDec conds
 
 
+-- The selection of (b : B) is done by PDecF. But a refinement might select a different b.
+-- Thus the refinement must also select the PDecF.
 PDecF : (PB : PSet α) → PSpec {α} vars PB → Set α
-PDecF {vars = vars} (B ×ₚ PB) (spPA pact pspec) = ((b : B) → (sys : System vars) → Dec (cond (pact b) sys)) × PDecF PB pspec
-PDecF ⊤ₚ s∅ = ⊤′
+PDecF {vars = vars} PB pspec = (sys : System vars) → pvDec (pcondf sys pspec)
 
-apB : (b : pToS PB) → PDecF PB pspec → DecF (apSp pspec b)
-apB {PB = B ×ₚ PB} {pspec = spPA pact pspec} (b , pb) pdecF sys = (fst pdecF) b sys , apB pb (snd pdecF) sys
-apB {PB = ⊤ₚ} {pspec = s∅} unit pdecF = λ sys → unit
-
-GDecF : (PB : PSet α) → GSpec {α} vars PB → Set α
-GDecF PB (gsp sp psp) = DecF sp × PDecF PB psp
+-- TODO Is this necessary?
+-- apB : (b : pToS PB) → PDecF PB pspec → DecF (apSp pspec b)
+-- apB {PB = B ×ₚ PB} {pspec = spPA pact pspec} (b , pb) pdecF sys = (fst pdecF) b sys , apB pb (snd pdecF) sys
+-- apB {PB = ⊤ₚ} {pspec = s∅} unit pdecF = λ sys → unit
+-- 
+-- GDecF : (PB : PSet α) → GSpec {α} vars PB → Set α
+-- GDecF PB (gsp sp psp) = DecF sp × PDecF PB psp
+--
 
 --The implementation permits stuttering.
 
-Restr : (spec : Spec {α} vars) → (System vars) → (System vars) → DecF spec → Set α
-Restr {vars = vars} spec sys nsys decF = vP spec sys nsys (decF sys) ⊎ (sys ≡ nsys)
+-- Because the resp does not depend on the cond, if one proves it for one case of decF,
+-- it proves it for all.
+Restr : (spec : Spec {α} vars) → (sys : System vars) → (System vars) → Set α
+Restr {vars = vars} spec sys nsys = (decF : DecF spec sys) → vP spec sys nsys decF
 
 
-TRestr : (spec : Spec {α} vars) → (beh : (System vars) ʷ) → DecF spec → (Set α) ʷ
-TRestr spec beh decF = ⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh) $ʷ ⟨ decF ⟩
+Stut : (sys : System {α} vars) → (System {α} vars) → Set α
+Stut sys nsys = sys ≡ nsys
+
+TRestr : (spec : Spec {α} vars) → (beh : (System vars) ʷ) → (Set α) ʷ
+TRestr spec beh = ⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh)
+
+
+-- TRestr : (spec : Spec {α} vars) → (beh : (System vars) ʷ) → [ ⟨ DecF spec ⟩ $ʷ beh ] → (Set α) ʷ
+-- TRestr spec beh decF = ⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh) $ʷ decF
+
+PRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (System vars) → (System vars) → PDecF PB pspec → Set α
+PRestr {vars = vars} PB pspec sys nsys pdecF = pvP pspec sys nsys (pdecF sys) ⊎ (sys ≡ nsys)
+
+
+-- -- 
+-- -- PTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → PDecF PB pspec → (Set α) ʷ
+-- -- PTRestr PB pspec beh pdecF = ⟨ PRestr PB pspec ⟩ $ʷ beh $ʷ (○ beh) $ʷ ⟨ pdecF ⟩
+-- -- 
+-- -- 
+-- -- GTRestr : (PB : PSet α) → (gspec : GSpec {α} vars PB) → (beh : (System vars) ʷ) → GDecF PB gspec → (Set α) ʷ
+-- -- GTRestr PB (gsp spec pspec) beh (decF , pdecF) = TRestr spec beh decF ∨ PTRestr PB pspec beh pdecF
+-- -- 
+
+
+-- -- -- Is this needed ? 
+-- -- _×ₚₚ_ : PSet α → PSet α → PSet α
+-- -- (x ×ₚ pe) ×ₚₚ pd = x ×ₚ (pe ×ₚₚ pd)
+-- -- ⊤ₚ ×ₚₚ pd = pd
+
+
+-- -- _andₚₛ_ : PSpec vars PB → PSpec vars PD → PSpec vars (PB ×ₚₚ PD)
+-- -- spPA pact pa andₚₛ pb = spPA pact (pa andₚₛ pb)
+-- -- s∅ andₚₛ pb = pb
 
 
 
-FPTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → (pdecF : PDecF PB pspec)
-           → ((b : pToS PB ) → (Set α)) ʷ
-FPTRestr B pspec beh pdecF n b = TRestr (apSp pspec b) beh (apB b pdecF) n
+-- -- vDec++ : {la : List (Set α)} → {lb : List (Set α)} → vDec la → vDec lb → vDec (la ++ lb)
+-- -- vDec++ {la = []} vda vdb = vdb
+-- -- vDec++ {la = A ∷ la} (a , vda) vdb = a , vDec++ vda vdb
+
+-- -- fmap++ : {la lb : List A} → {f : A → B} → fmap f la ++ fmap f lb ≡ fmap f (la ++ lb)
+-- -- fmap++ {la = []} {lb} = refl
+-- -- fmap++ {la = x ∷ la} {lb} {f} = cong (f x ∷_) (fmap++ {la = la})
 
 
-PTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → PDecF PB pspec → (Set α) ʷ
-PTRestr PB pspec beh pdecF = ⟨ Σ (pToS PB) ⟩ $ʷ (FPTRestr PB pspec beh pdecF)
+-- -- decF++ : (decFa : DecF specA) → (decFb : DecF specB) → DecF (specA ++ specB)
+-- -- decF++ {specA = specA} {specB = specB} decFa decFb sys = transport vDec r (vDec++ (decFa sys) (decFb sys)) where
+-- --   r = fmap++ {la = specA} {lb = specB} {(λ sp → cond sp sys)}
 
-GTRestr : (PB : PSet α) → (gspec : GSpec {α} vars PB) → (beh : (System vars) ʷ) → GDecF PB gspec → (Set α) ʷ
-GTRestr PB (gsp spec pspec) beh (decF , pdecF) = TRestr spec beh decF ∨ PTRestr PB pspec beh pdecF
-
-
-
--- -- Is this needed ? 
--- _×ₚₚ_ : PSet α → PSet α → PSet α
--- (x ×ₚ pe) ×ₚₚ pd = x ×ₚ (pe ×ₚₚ pd)
--- ⊤ₚ ×ₚₚ pd = pd
+-- -- decF+++ : (decFa : DecF specA) → (decFb : DecF specB) → DecF (specA ++ specB)
+-- -- decF+++ {specA = []} {specB} decFa decFb sys = decFb sys
+-- -- decF+++ {specA = x ∷ specA} {specB} decFa decFb sys =
+-- --   let (da , _) = decFa sys
+-- --   in da , decF+++ (λ sys → snd ( decFa sys)) decFb sys
 
 
--- _andₚₛ_ : PSpec vars PB → PSpec vars PD → PSpec vars (PB ×ₚₚ PD)
--- spPA pact pa andₚₛ pb = spPA pact (pa andₚₛ pb)
--- s∅ andₚₛ pb = pb
+-- -- Restr++ : {speca specb : Spec {α} vars} → {sys : System vars} → {nsys : System vars} → {decFa : DecF speca} → {decFb : DecF specb} → {decFab : DecF (speca ++ specb)}
+-- --           → (rsta : Restr speca sys nsys decFa) → (rstb : Restr specb sys nsys decFb) → Restr (speca ++ specb) sys nsys decFab
+-- -- Restr++ {speca = []} {specb} {sys} {nsys} {_} {decFb} {decFab} rsta rstb with decFab sys | decFb sys | vP specb sys nsys (decFab sys) | vP specb sys nsys (decFb sys)
+-- -- ... | r | g | e | q = {!!}
+-- -- Restr++ {speca = x ∷ speca} {specb} {sys} rsta rstb = {!!}
 
 
-
--- vDec++ : {la : List (Set α)} → {lb : List (Set α)} → vDec la → vDec lb → vDec (la ++ lb)
--- vDec++ {la = []} vda vdb = vdb
--- vDec++ {la = A ∷ la} (a , vda) vdb = a , vDec++ vda vdb
-
--- fmap++ : {la lb : List A} → {f : A → B} → fmap f la ++ fmap f lb ≡ fmap f (la ++ lb)
--- fmap++ {la = []} {lb} = refl
--- fmap++ {la = x ∷ la} {lb} {f} = cong (f x ∷_) (fmap++ {la = la})
-
-
--- decF++ : (decFa : DecF specA) → (decFb : DecF specB) → DecF (specA ++ specB)
--- decF++ {specA = specA} {specB = specB} decFa decFb sys = transport vDec r (vDec++ (decFa sys) (decFb sys)) where
---   r = fmap++ {la = specA} {lb = specB} {(λ sp → cond sp sys)}
-
--- decF+++ : (decFa : DecF specA) → (decFb : DecF specB) → DecF (specA ++ specB)
--- decF+++ {specA = []} {specB} decFa decFb sys = decFb sys
--- decF+++ {specA = x ∷ specA} {specB} decFa decFb sys =
---   let (da , _) = decFa sys
---   in da , decF+++ (λ sys → snd ( decFa sys)) decFb sys
-
-
--- Restr++ : {speca specb : Spec {α} vars} → {sys : System vars} → {nsys : System vars} → {decFa : DecF speca} → {decFb : DecF specb} → {decFab : DecF (speca ++ specb)}
---           → (rsta : Restr speca sys nsys decFa) → (rstb : Restr specb sys nsys decFb) → Restr (speca ++ specb) sys nsys decFab
--- Restr++ {speca = []} {specb} {sys} {nsys} {_} {decFb} {decFab} rsta rstb with decFab sys | decFb sys | vP specb sys nsys (decFab sys) | vP specb sys nsys (decFb sys)
--- ... | r | g | e | q = {!!}
--- Restr++ {speca = x ∷ speca} {specb} {sys} rsta rstb = {!!}
+-- -- Old version that is now obsolete.
+-- -- FPTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → (pdecF : PDecF PB pspec)
+-- --            → ((b : pToS PB ) → (Set α)) ʷ
+-- -- FPTRestr B pspec beh pdecF n b = TRestr (apSp pspec b) beh (apB b pdecF) n
+-- -- 
+-- -- 
+-- -- PTRestr : (PB : PSet α) → (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ) → PDecF PB pspec → (Set α) ʷ
+-- -- PTRestr PB pspec beh pdecF = ⟨ Σ (pToS PB) ⟩ $ʷ (FPTRestr PB pspec beh pdecF)
