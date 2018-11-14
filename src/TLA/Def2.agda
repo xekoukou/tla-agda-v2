@@ -34,41 +34,43 @@ postulate IMPOSSIBLE : A
 
 
 PSet : (n : Nat) → Set (lsuc α)
-PSet {α} n = Vec (Set α) (suc n)
-
-pattern _×ₚ_ B PB = B ∷ PB
-pattern _⊎⊥ B = B ∷ []
+PSet {α} n = Vec (Set α) n
 
 
-data PESet α : Set (lsuc α) where
-  _×ₑ_ : (B : Set α) → (EB : PESet α) → PESet α
-  ⊤ₑ  : PESet α
+VSet : (n : Nat) → Set (lsuc α)
+VSet n = PSet (suc n)
 
-pStoS : PESet α → Set α
-pStoS (S ×ₑ pd) = S × pStoS pd
-pStoS ⊤ₑ = ⊤′
+pattern _×ₚ_ B PB = Vec._∷_ B PB
+pattern _⊎⊥ B = Vec._∷_ B Vec.[]
+pattern ⊤ₚ = Vec.[]
 
 
-_toMPESet : PESet α → PESet α
-(B ×ₑ pset) toMPESet = Maybe B ×ₑ (pset toMPESet)
-⊤ₑ toMPESet = ⊤ₑ
+pStoS : PSet {α} n → Set α
+pStoS (S ×ₚ pd) = S × pStoS pd
+pStoS ⊤ₚ = ⊤′
+
+
+_toMPSet : PSet {α} n → PSet {α} n
+(B ×ₚ pset) toMPSet = Maybe B ×ₚ (pset toMPSet)
+⊤ₑ toMPSet = ⊤ₑ
 
 
 variable
-  vars varsA varsB : PSet _
-  PA PB PC PD PE : PESet _
+  vars varsA varsB : VSet _
+  PA PB PC PD PE : PSet _
 
 
 -- Non Termporal so as to be used by Actions.
-System : PSet {α} n → Set α
+System : VSet {α} n → Set α
 System (B ×ₚ PB@(_ ×ₚ _)) = B × System PB
 System (B ⊎⊥) = B
+
 
 variable
   sys sysA sysB :  System _
 
 
-record Action {α n} (vars : PSet {α} n) : Set (lsuc α) where
+record Action {α n} (vars : VSet {α} n) : Set (lsuc α) where
   field
     cond : (sys : System vars) → Set α
     resp : (sys : System vars) → (nsys : System vars) → Set α
@@ -76,7 +78,7 @@ record Action {α n} (vars : PSet {α} n) : Set (lsuc α) where
 open Action public
 
 
-PAction : (B : Set α) → (vars : PSet {α} n) → Set (lsuc α)
+PAction : (B : Set α) → (vars : VSet {α} n) → Set (lsuc α)
 PAction B vars = B → Action vars 
 
 
@@ -85,23 +87,9 @@ variable
   pact pactA pactB : PAction _ _
 
 
--- MPAction is a PAction that takes Maybe B as input.
--- This is necessary because we will not always have a B.
--- The presence of B is determined by the action taken at time t.
-MPAction : (B : Set α) → (vars : PSet {α} n) → Set (lsuc α)
-MPAction B vars = Maybe B → Action vars
 
 
-⊥-Action : Action vars
-cond ⊥-Action sys = ⊥′
-resp ⊥-Action sys nsys = ⊥′
-
-_toMPAction : PAction B vars → MPAction B vars
-(pa toMPAction) nothing  = ⊥-Action
-(pa toMPAction) (just x) = pa x
-
-
-record ConAction {α n} {vars : PSet {α} n} (act : Action vars) : Set (lsuc α) where
+record ConAction {α n} {vars : VSet {α} n} (act : Action vars) : Set (lsuc α) where
   field
     impl : (sys : System vars) → (cnd : (cond act) sys) → ∃ (λ nsys → resp act sys nsys)
 open ConAction public
@@ -109,7 +97,7 @@ open ConAction public
 simpleAction : ConAction {vars = vars} act → (sys : System vars) → (cnd : (cond act) sys) → System vars
 simpleAction cact sys cnd = fst (impl cact sys cnd)
 
-record PConAction {α n} {vars : PSet {α} n} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
+record PConAction {α n} {vars : VSet {α} n} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
   field
     par : System vars → B
     impl : (sys : System vars) → (cnd : (cond (pact (par sys))) sys) → ∃ (λ nsys → resp (pact (par sys)) sys nsys)
@@ -121,16 +109,16 @@ simplePAction cact sys cnd = fst ((impl cact) sys cnd)
 
 
 
-Spec : (vars : PSet {α} n) → Set (lsuc α)
+Spec : (vars : VSet {α} n) → Set (lsuc α)
 Spec vars = List (Action vars)
 
 
-data PSpec {α n} (vars : PSet {α} n) : (PB : PESet α) → Set (lsuc α) where
-  _+psp+_ : (pact : PAction B vars) → (pspec : PSpec vars PB) → PSpec vars (B ×ₑ PB)
-  psp∅ : PSpec vars ⊤ₑ
+data PSpec {α n} (vars : VSet {α} n) : ∀{k} → (PB : PSet {α} k) → Set (lsuc α) where
+  _+psp+_ : (pact : PAction B vars) → (pspec : PSpec vars PB) → PSpec vars (B ×ₚ PB)
+  psp∅ : PSpec vars ⊤ₚ
 
 
-record GSpec {α n} (vars : PSet {α} n) (PB : PESet α) : Set (lsuc α) where
+record GSpec {α n k} (vars : VSet {α} n) (PB : PSet {α} k) : Set (lsuc α) where
   constructor gsp
   field
     sp : Spec vars
@@ -163,16 +151,6 @@ ConGSpec : (gspec : GSpec {α} vars PB) → Set (lsuc α)
 ConGSpec gspec = ConSpec (sp gspec) × ConPSpec (psp gspec)
 
 
--- To restrict the general case of specification, we need to lift all PActions into
--- MActions.
-_toMPSpec : PSpec vars PB → PSpec vars (PB toMPESet)
-(pact +psp+ pspec) toMPSpec = (pact toMPAction) +psp+ (pspec toMPSpec)
-psp∅ toMPSpec = psp∅
-
-
-_toMGSpec : GSpec vars PB → GSpec vars (PB toMPESet)
-sp (gspec toMGSpec) = sp gspec
-psp (gspec toMGSpec) = (psp gspec) toMPSpec
 
 
 
@@ -212,11 +190,44 @@ TStut : (beh : (System {α} vars) ʷ) → (Set α) ʷ
 TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ʷ beh $ʷ (○ beh)
 
 
-PRestr : (pspec : PSpec {α} vars PB) → (sys : System vars) → (nsys : System vars) → pStoS (PB toMPESet) → Set α
+
+
+
+-- MPAction is a PAction that takes Maybe B as input.
+-- This is necessary because we will not always have a B.
+-- The presence of B is determined by the action taken at time t.
+MPAction : (B : Set α) → (vars : VSet {α} n) → Set (lsuc α)
+MPAction B vars = Maybe B → Action vars
+
+
+⊥-Action : Action vars
+cond ⊥-Action sys = ⊥′
+resp ⊥-Action sys nsys = ⊥′
+
+_toMPAction : PAction B vars → MPAction B vars
+(pa toMPAction) nothing  = ⊥-Action
+(pa toMPAction) (just x) = pa x
+
+
+
+-- To restrict the general case of specification, we need to lift all PActions into
+-- MActions.
+_toMPSpec : PSpec vars PB → PSpec vars (PB toMPSet)
+(pact +psp+ pspec) toMPSpec = (pact toMPAction) +psp+ (pspec toMPSpec)
+psp∅ toMPSpec = psp∅
+
+
+_toMGSpec : GSpec vars PB → GSpec vars (PB toMPSet)
+sp (gspec toMGSpec) = sp gspec
+psp (gspec toMGSpec) = (psp gspec) toMPSpec
+
+
+
+PRestr : (pspec : PSpec {α} vars PB) → (sys : System vars) → (nsys : System vars) → pStoS (PB toMPSet) → Set α
 PRestr pspec sys nsys mpb = Restr ((pspec toMPSpec) $ᵖˢ mpb) sys nsys
 
 
 TPRestr : (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ)
-          → (tmpb : ( pStoS (PB toMPESet) ) ʷ) → (Set α ) ʷ
+          → (tmpb : ( pStoS (PB toMPSet) ) ʷ) → (Set α ) ʷ
 TPRestr pspec beh tmpb = ⟨ Restr ⟩ $ʷ (⟨ (pspec toMPSpec) $ᵖˢ_ ⟩ $ʷ tmpb) $ʷ beh $ʷ ○ beh
 

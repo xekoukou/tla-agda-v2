@@ -8,7 +8,7 @@ open import TLA.Def2 public
 variable
   refm : System varsB → System varsA
 
-record RefAction {α n k} {varsA : PSet {α} n} {varsB : PSet {α} k}
+record RefAction {α n k} {varsA : VSet {α} n} {varsB : VSet {α} k}
                  (refm : System varsB → System varsA) (actA : Action varsA) : Set (lsuc α) where
   field
     ract : Action varsB
@@ -25,7 +25,7 @@ PRefAction {varsB = varsB} B refm actA = (b : B) → RefAction {varsB = varsB} r
 
 
 
-record RefPAction {α n k} {varsA : PSet {α} n} {varsB : PSet {α} k}
+record RefPAction {α n k} {varsA : VSet {α} n} {varsB : VSet {α} k}
                  {B : Set α} (refm : System varsB → System varsA) (pactA : PAction B varsA) : Set (lsuc α) where
   field
     par : System varsB → B
@@ -44,13 +44,13 @@ PRefPAction {varsB = varsB} E refm pactA = (b : E) → RefPAction {varsB = varsB
 
 
 
-record RefStAction {α n k} {varsA : PSet {α} n} {varsB : PSet {α} k}
+record RefStAction {α n k} {varsA : VSet {α} n} {varsB : VSet {α} k}
                  (refm : System varsB → System varsA) : Set (lsuc α) where
   field
     ract : Action varsB
-    isConst : (vs : System varsB) → (nvs : System varsB) → (cnd : cond ract vs)
-              → (rsp : resp ract vs nvs)
-              → refm vs ≡ refm nvs
+    isConst : (sys : System varsB) → (nsys : System varsB) → (cnd : cond ract sys)
+              → (rsp : resp ract sys nsys)
+              → refm sys ≡ refm nsys
 open RefStAction public
 
 
@@ -77,24 +77,30 @@ extractSpec {spec = act ∷ spec} (lra , rsp) =  (map ract lra) ++ extractSpec r
 
 
 
-data GRefSpec {α varsA varsB} (refm : System {α} varsB → System {α} varsA)
-              : ∀{PB} (PE : PESet α) (gspec : GSpec varsA PB) → Set (lsuc α) where
-  rfA    : (ref : RefSpec {varsA = varsA} {varsB = varsB} refm spec)
-           → GRefSpec refm ⊤ₑ (gsp spec psp∅)
-  prfStA : (refSt : PRefStAction {varsA = varsA} {varsB = varsB} E refm)
-           → (ind : GRefSpec {varsA = varsA} {varsB = varsB} refm PE (gsp spec psp∅))
-           → GRefSpec refm (E ×ₑ PE) (gsp spec psp∅)
-  prfA   : ∀{actA spec} → (prefA : PRefAction {varsA = varsA} {varsB = varsB} E refm actA)
-           → let indf x = GRefSpec {varsA = varsA} {varsB = varsB} refm PE (gsp x psp∅)
-             in (ind : indf (actA ∷ spec) ⊎ indf spec)
-           → GRefSpec refm (E ×ₑ PE) (gsp (actA ∷ spec) psp∅)
-  rfpA   : (refPA : RefPAction {varsA = varsA} {varsB = varsB} refm pact)
-           → let indf y x = GRefSpec {varsB = varsB} refm {PB = y} PE (gsp spec x)
-             in (ind : indf (B ×ₑ PB) (pact +psp+ pspec) ⊎ indf PB pspec)
-           → GRefSpec refm PE (gsp spec (_+psp+_ {B = B} {PB = PB} pact pspec))
-  prfpA  : (prefPA : PRefPAction {varsA = varsA} {varsB = varsB} E refm pact)
-           → let indf y x = GRefSpec {varsB = varsB} refm {PB = y} PE (gsp spec x)
-             in (ind : indf (B ×ₑ PB) (_+psp+_ pact pspec) ⊎ indf PB pspec)
-           → GRefSpec refm {PB = (B ×ₑ PB)} (E ×ₑ PE) (gsp spec (_+psp+_ pact pspec))
+data GRefSpec {α n k varsA varsB} (refm : System {α} {k} varsB → System {α} {n} varsA)
+              : ∀{en bn PB} (PE : PSet {α} en) (gspec : GSpec {k = bn} varsA PB) → Set (lsuc α) where
+  rf    : (ref : RefSpec {varsA = varsA} {varsB = varsB} refm spec)
+          → GRefSpec refm ⊤ₚ (gsp spec psp∅)
+  pst_∷_ : (refSt : PRefStAction {varsA = varsA} {varsB = varsB} E refm)
+          → (ind : GRefSpec {varsA = varsA} {varsB = varsB} refm PE (gsp spec psp∅))
+          → GRefSpec refm (E ×ₚ PE) (gsp spec psp∅)
+  prf_∷_   : ∀{actA spec} → (prefA : PRefAction {varsA = varsA} {varsB = varsB} E refm actA)
+          → let indf x = GRefSpec {varsA = varsA} {varsB = varsB} refm PE (gsp x psp∅)
+            in (ind : indf (actA ∷ spec) ⊎ indf spec)
+          → GRefSpec refm (E ×ₚ PE) (gsp (actA ∷ spec) psp∅)
+  rfp_∷_   : (refPA : RefPAction {varsA = varsA} {varsB = varsB} refm pact)
+          → let indf z y x = GRefSpec {varsB = varsB} refm {bn = z} {PB = y} PE (gsp spec x)
+            in (ind : indf (suc m) (B ×ₚ PB) (pact +psp+ pspec) ⊎ indf m PB pspec)
+          → GRefSpec refm PE (gsp spec (_+psp+_ {B = B} {PB = PB} pact pspec))
+  prfp_∷_  : (prefPA : PRefPAction {varsA = varsA} {varsB = varsB} E refm pact)
+          → let indf z y x = GRefSpec {varsB = varsB} refm {bn = z} {PB = y} PE (gsp spec x)
+            in (ind : indf (suc m) (B ×ₚ PB) (_+psp+_ pact pspec) ⊎ indf m PB pspec)
+          → GRefSpec refm {PB = (B ×ₚ PB)} (E ×ₚ PE) (gsp spec (_+psp+_ pact pspec))
 
 
+
+_addSt_ : {refm : System {α} varsB → System {α} varsA} → {spec : Spec varsA}
+        → RefSpec {varsB = varsB} refm spec → RefStAction {varsA = varsA} {varsB = varsB} refm
+        → RefSpec {varsB = varsB} refm spec
+_addSt_ {spec = []} ref rfa = rfa ∷ ref
+_addSt_ {spec = act ∷ spec} (rfas , ind) rfa = rfas , (ind addSt rfa)
