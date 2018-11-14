@@ -1,6 +1,6 @@
 module TLA.Refine2 where
 
-open import TLA.Def2
+open import TLA.Def2 public
 
 
 
@@ -19,21 +19,9 @@ record RefAction {α} {varsA : PSet α} {varsB : PSet α}
 open RefAction public
 
 
-⊥-RefAction : {refm : System varsB → System varsA} → RefAction {varsA = varsA} {varsB = varsB} refm actA
-ract ⊥-RefAction = ⊥-Action
-dom-embed ⊥-RefAction vs ()
-range-embed ⊥-RefAction vs nvs () rsp
-
-
 
 PRefAction : (B : Set α) → (refm : System {α} varsB → System {α} varsA) → (actA : Action varsA) → Set (lsuc α)
 PRefAction {varsB = varsB} B refm actA = (b : B) → RefAction {varsB = varsB} refm actA
-
-
-_toMPRefAction : {refm : System varsB → System varsA} → PRefAction {varsA = varsA} {varsB = varsB} B refm actA
-                 → PRefAction {varsA = varsA} {varsB = varsB} (Maybe B) refm actA
-(pref toMPRefAction) nothing = ⊥-RefAction
-(pref toMPRefAction) (just b) = pref b
 
 
 
@@ -49,25 +37,10 @@ record RefPAction {α} {varsA : PSet α} {varsB : PSet α}
 open RefPAction public
 
 
-⊥-RefPAction : (par : System varsB → B) → {refm : System varsB → System varsA}
-               → RefPAction {varsA = varsA} {varsB = varsB} {B = B} refm pactA
-par (⊥-RefPAction par) = par
-ract (⊥-RefPAction par) = ⊥-Action
-dom-embed (⊥-RefPAction par) vs ()
-range-embed (⊥-RefPAction par) vs nvs () rsp
-
-
 
 PRefPAction : (E : Set α) → (refm : System {α} varsB → System {α} varsA) → (pactA : PAction B varsA)
              → Set (lsuc α)
 PRefPAction {varsB = varsB} E refm pactA = (b : E) → RefPAction {varsB = varsB} refm pactA
-
-
--- Important here, We expect not to use the par function for an action that is not possible to happen.
-_toMPRefPAction : {refm : System varsB → System varsA} → PRefPAction {varsA = varsA} {varsB = varsB} E refm pactA
-                 → PRefPAction {varsA = varsA} {varsB = varsB} (Maybe E) refm pactA
-(pref toMPRefPAction) nothing = ⊥-RefPAction IMPOSSIBLE
-(pref toMPRefPAction) (just b) = pref b
 
 
 
@@ -80,20 +53,10 @@ record RefStAction {α} {varsA : PSet α} {varsB : PSet α}
               → refm vs ≡ refm nvs
 open RefStAction public
 
-⊥-RefStAction : {refm : System varsB → System varsA} → RefStAction {varsA = varsA} {varsB = varsB} refm
-ract ⊥-RefStAction = ⊥-Action
-isConst ⊥-RefStAction vs nvs () rsp
-
 
 PRefStAction : (B : Set α) → (refm : System {α} varsB → System {α} varsA)
                → Set (lsuc α)
 PRefStAction {varsA = varsA} {varsB = varsB} B refm = (b : B) → RefStAction {varsA = varsA} {varsB = varsB} refm
-
-
-_toMPRefStAction : {refm : System varsB → System varsA} → PRefStAction {varsA = varsA} {varsB = varsB} B refm
-                 → PRefStAction {varsA = varsA} {varsB = varsB} (Maybe B) refm
-(refSt toMPRefStAction) nothing = ⊥-RefStAction
-(refSt toMPRefStAction) (just b) = refSt b
 
 
 
@@ -135,10 +98,3 @@ data GRefSpec {α varsA varsB} (refm : System {α} varsB → System {α} varsA)
            → GRefSpec refm {PB = (B ×ₑ PB)} (E ×ₑ PE) (gsp spec (_+psp+_ pact pspec))
 
 
-
-_$ʳᶠ_ : {refm : System varsB → System varsA} → GRefSpec {varsB = varsB} refm PE gspec → (pe : pStoS (PE toMPESet)) → RefSpec {varsA = varsA} {varsB = varsB} refm (gspec $ᵍˢ pe)
-rfA ref $ʳᶠ pe = ref
-prfStA refSt gspec $ʳᶠ pe = {!!}
-prfA prefA ind $ʳᶠ pe = {!!}
-rfpA refPA ind $ʳᶠ pe = {!!}
-prfpA prefPA ind $ʳᶠ pe = {!!}
