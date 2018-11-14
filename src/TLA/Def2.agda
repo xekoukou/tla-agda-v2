@@ -33,9 +33,12 @@ variable
 postulate IMPOSSIBLE : A
 
 
-data PSet α : Set (lsuc α) where
-  _×ₚ_ : (B : Set α) → (PB : PSet α) → PSet α
-  _⊎⊥ : (B : Set α) → PSet α
+PSet : (n : Nat) → Set (lsuc α)
+PSet {α} n = Vec (Set α) (suc n)
+
+pattern _×ₚ_ B PB = B ∷ PB
+pattern _⊎⊥ B = B ∷ []
+
 
 data PESet α : Set (lsuc α) where
   _×ₑ_ : (B : Set α) → (EB : PESet α) → PESet α
@@ -52,21 +55,20 @@ _toMPESet : PESet α → PESet α
 
 
 variable
-  vars varsA varsB : PSet α
-  PA PB PC PD PE : PESet α
+  vars varsA varsB : PSet _
+  PA PB PC PD PE : PESet _
 
 
 -- Non Termporal so as to be used by Actions.
-System : PSet α → Set α
-System (B ×ₚ PB) = B × System PB
+System : PSet {α} n → Set α
+System (B ×ₚ PB@(_ ×ₚ _)) = B × System PB
 System (B ⊎⊥) = B
-
 
 variable
   sys sysA sysB :  System _
 
 
-record Action {α} (vars : PSet α) : Set (lsuc α) where
+record Action {α n} (vars : PSet {α} n) : Set (lsuc α) where
   field
     cond : (sys : System vars) → Set α
     resp : (sys : System vars) → (nsys : System vars) → Set α
@@ -74,7 +76,7 @@ record Action {α} (vars : PSet α) : Set (lsuc α) where
 open Action public
 
 
-PAction : (B : Set α) → (vars : PSet α) → Set (lsuc α)
+PAction : (B : Set α) → (vars : PSet {α} n) → Set (lsuc α)
 PAction B vars = B → Action vars 
 
 
@@ -86,7 +88,7 @@ variable
 -- MPAction is a PAction that takes Maybe B as input.
 -- This is necessary because we will not always have a B.
 -- The presence of B is determined by the action taken at time t.
-MPAction : (B : Set α) → (vars : PSet α) → Set (lsuc α)
+MPAction : (B : Set α) → (vars : PSet {α} n) → Set (lsuc α)
 MPAction B vars = Maybe B → Action vars
 
 
@@ -99,7 +101,7 @@ _toMPAction : PAction B vars → MPAction B vars
 (pa toMPAction) (just x) = pa x
 
 
-record ConAction {α} {vars : PSet α} (act : Action vars) : Set (lsuc α) where
+record ConAction {α n} {vars : PSet {α} n} (act : Action vars) : Set (lsuc α) where
   field
     impl : (sys : System vars) → (cnd : (cond act) sys) → ∃ (λ nsys → resp act sys nsys)
 open ConAction public
@@ -107,7 +109,7 @@ open ConAction public
 simpleAction : ConAction {vars = vars} act → (sys : System vars) → (cnd : (cond act) sys) → System vars
 simpleAction cact sys cnd = fst (impl cact sys cnd)
 
-record PConAction {α} {vars : PSet α} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
+record PConAction {α n} {vars : PSet {α} n} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
   field
     par : System vars → B
     impl : (sys : System vars) → (cnd : (cond (pact (par sys))) sys) → ∃ (λ nsys → resp (pact (par sys)) sys nsys)
@@ -119,16 +121,16 @@ simplePAction cact sys cnd = fst ((impl cact) sys cnd)
 
 
 
-Spec : (vars : PSet α) → Set (lsuc α)
+Spec : (vars : PSet {α} n) → Set (lsuc α)
 Spec vars = List (Action vars)
 
 
-data PSpec {α} (vars : PSet α) : (PB : PESet α) → Set (lsuc α) where
+data PSpec {α n} (vars : PSet {α} n) : (PB : PESet α) → Set (lsuc α) where
   _+psp+_ : (pact : PAction B vars) → (pspec : PSpec vars PB) → PSpec vars (B ×ₑ PB)
   psp∅ : PSpec vars ⊤ₑ
 
 
-record GSpec {α} (vars : PSet α) (PB : PESet α) : Set (lsuc α) where
+record GSpec {α n} (vars : PSet {α} n) (PB : PESet α) : Set (lsuc α) where
   constructor gsp
   field
     sp : Spec vars

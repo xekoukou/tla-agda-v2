@@ -8,7 +8,7 @@ open import TLA.Def2 public
 variable
   refm : System varsB → System varsA
 
-record RefAction {α} {varsA : PSet α} {varsB : PSet α}
+record RefAction {α n k} {varsA : PSet {α} n} {varsB : PSet {α} k}
                  (refm : System varsB → System varsA) (actA : Action varsA) : Set (lsuc α) where
   field
     ract : Action varsB
@@ -25,7 +25,7 @@ PRefAction {varsB = varsB} B refm actA = (b : B) → RefAction {varsB = varsB} r
 
 
 
-record RefPAction {α} {varsA : PSet α} {varsB : PSet α}
+record RefPAction {α n k} {varsA : PSet {α} n} {varsB : PSet {α} k}
                  {B : Set α} (refm : System varsB → System varsA) (pactA : PAction B varsA) : Set (lsuc α) where
   field
     par : System varsB → B
@@ -44,7 +44,7 @@ PRefPAction {varsB = varsB} E refm pactA = (b : E) → RefPAction {varsB = varsB
 
 
 
-record RefStAction {α} {varsA : PSet α} {varsB : PSet α}
+record RefStAction {α n k} {varsA : PSet {α} n} {varsB : PSet {α} k}
                  (refm : System varsB → System varsA) : Set (lsuc α) where
   field
     ract : Action varsB
