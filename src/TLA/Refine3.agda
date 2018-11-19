@@ -106,16 +106,24 @@ trefTheoremSt : {refm : System varsB → System varsA}
 trefTheoremSt rspec beh pe n x = refTheoremSt rspec (beh n) (beh (suc n)) (pe n) x
 
 
-
+GRestr : {PE : VSet {α} el} → {PB : VSet {α} bl} → {PEST : VSet {α} esl} → {spec : Spec varsA PB}
+         → {refm : System varsB → System varsA}
+  → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
+  → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
+  → (sys nsys : (System varsB)) → (pe : ((PE v++ PEST) toUS))
+  → Set α
+GRestr {varsB = varsB} {varsA = varsA} {PE} {PB} {PEST} {spec = spec} {refm} rspec rspecSt sys nsys pe
+  = either (λ pe → (< PE > exSpec rspec  $ pe) sys nsys
+                   → (< PB > spec $ (exPar rspec pe sys)) (refm sys) (refm nsys) )
+           (λ pe → (< PEST > exSpecSt rspecSt $ pe) sys nsys
+                   → Stut {vars = varsA} (refm sys) (refm nsys))
+           (split PE PEST pe)
 
 gRefTheorem : {refm : System varsB → System varsA}
   → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
   → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
   → (sys nsys : (System varsB)) → (pe : ((PE v++ PEST) toUS))
-  → either (λ pe → (< PE > exSpec rspec  $ pe) sys nsys
-                   → (< PB > spec $ (exPar rspec pe sys)) (refm sys) (refm nsys) )
-           (λ pe → (< PEST > exSpecSt rspecSt $ pe) sys nsys → Stut {vars = varsA} (refm sys) (refm nsys))
-           (split PE PEST pe)
+  → GRestr rspec rspecSt sys nsys pe
 gRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe with split PE PEST pe
 gRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe | x ←u
   = refTheorem rspec sys nsys x
@@ -123,3 +131,10 @@ gRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe | u→_ x
   = refTheoremSt rspecSt sys nsys x
 
 
+
+tgRefTheorem : {refm : System varsB → System varsA}
+  → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
+  → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
+  → (beh : (System varsB) ʷ) → (pe : ((PE v++ PEST) toUS) ʷ)
+  → [ ⟨ GRestr rspec rspecSt ⟩ $ʷ beh $ʷ ○ beh $ʷ pe ]
+tgRefTheorem rspec rspecSt beh pe n = gRefTheorem rspec rspecSt (beh n) (beh (suc n)) (pe n)
