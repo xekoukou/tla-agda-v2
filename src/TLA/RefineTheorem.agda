@@ -43,7 +43,7 @@ prf_apply_ : {refm : System varsB → System varsA} → PRefAction {varsA = vars
 (prf pref apply sys) b = rf (pref b) apply sys
 
 
-
+-- Is this necessary ? 
 _toMPRApp : {refm : System varsB → System varsA} → {sys : System varsB}
                     →  PRefActionApp {varsA = varsA} {varsB = varsB} B refm actA sys
                     →  PRefActionApp {varsA = varsA} {varsB = varsB} (Maybe B) refm actA sys
@@ -78,6 +78,7 @@ prfp_apply_ : {refm : System varsB → System varsA}
 (prfp pref apply sys) e = rfp (pref e) apply sys
 
 
+-- Is this neccessary ? 
 _toMPRPApp : {refm : System varsB → System varsA}
              → {ref : PRefPAction {varsA = varsA} {varsB = varsB} E refm pactA}
              → {sys : System varsB}
@@ -122,7 +123,7 @@ isConst (prfSt ref apply sys e) = isConst (ref e) sys
 ract ⊥-RefStActionApp = ⊥-Action
 isConst ⊥-RefStActionApp nsys () rsp
 
-
+-- Is this neccessary ?
 _toMPRStApp : {refm : System varsB → System varsA} → {sys : System varsB}
               → PRefStActionApp {varsA = varsA} {varsB = varsB} B refm sys
                  → PRefStActionApp {varsA = varsA} {varsB = varsB} (Maybe B) refm sys
@@ -137,6 +138,11 @@ RefSpecApp {varsA = varsA} {varsB = varsB} refm [] sys
 RefSpecApp {varsB = varsB} refm (act ∷ spec) sys
   = List (RefActionApp {varsB = varsB} refm act sys) × RefSpecApp {varsB = varsB} refm spec sys
 
+refSpecApp∅ : {refm : System {α} varsB → System {α} varsA} → {spec : Spec varsA} → {sys : System varsB}
+              → RefSpecApp {varsB = varsB} refm spec sys
+refSpecApp∅ {spec = []} = []
+refSpecApp∅ {spec = actA ∷ spec} = [] , refSpecApp∅
+
 
 _addStApp_ : {refm : System {α} varsB → System {α} varsA} → {spec : Spec varsA} → {sys : System varsB}
         → RefSpecApp {varsB = varsB} refm spec sys → RefStActionApp {varsA = varsA} {varsB = varsB} refm sys
@@ -145,32 +151,69 @@ _addStApp_ {spec = []} ref rfa = rfa ∷ ref
 _addStApp_ {spec = act ∷ spec} (rfas , ind) rfa = rfas , (ind addStApp rfa)
 
 
--- Completely wrong. We need to apply PB not PE.
+getPar : {refm : System varsB → System varsA}
+         → (gref : GRefSpec {varsA = varsA} {varsB = varsB} refm {PB = PB} PE gspec)
+         → (pe : pStoUS PE) → {sys nsys : System varsB}
+         → let espec = (gextrSpec gref pe)
+           in (pcnds : PrConds espec sys)
+              → (rst : RestrWithSt espec sys nsys pcnds) → pStoUS PB
+
+getPar gref pe pcnds (u→ rst) = u→∅
+getPar {PE = ⊤ₚ} (rf ref) pe pcnds rst = unit
+getPar {PE = ⊤ₚ} (rfp refPA ∷ (gref ←u)) pe {sys} (yes _ , pcnds) ((rst ←u) ←u) = (par refPA sys) ←u
+getPar {PE = ⊤ₚ} (rfp refPA ∷ (gref ←u)) pe (yes _ , pcnds) ((u→ rst) ←u) = getPar gref pe pcnds (rst ←u)
+getPar {PE = ⊤ₚ} (rfp refPA ∷ (gref ←u)) pe (no _ , pcnds) rst = getPar gref pe pcnds rst
+getPar {PE = ⊤ₚ} (rfp refPA ∷ (u→ gref)) pe {sys} (yes _ , pcnds) ((rst ←u) ←u) = (par refPA sys) ←u
+getPar {PE = ⊤ₚ} (rfp refPA ∷ (u→ gref)) pe (yes _ , pcnds) ((u→ rst) ←u) = u→ getPar gref pe pcnds (rst ←u)
+getPar {PE = ⊤ₚ} (rfp refPA ∷ (u→ gref)) pe (no _ , pcnds) rst = u→ getPar gref pe pcnds rst
+getPar {PE = E ×ₚ PE} (pst refSt ∷ gref) pe pcnds rst = unit
+getPar {PE = E ×ₚ PE} (prf prefA ∷ gref) pe pcnds rst = unit
+getPar {PE = E ×ₚ PE} (rfp refPA ∷ (gref ←u)) (e ←u) {sys} (yes _ , pcnds) ((rst ←u) ←u) = (par refPA sys) ←u
+-- Identical to the previous definition. We simply have to split PE.
+getPar {PE = E ×ₚ PE} (rfp refPA ∷ (gref ←u)) pe {sys} (yes d , pcnds) ((rst ←u) ←u) = (par refPA sys) ←u
+getPar {PE = E ×ₚ PE} (rfp refPA ∷ (gref ←u)) pe (yes d , pcnds) ((u→ rst) ←u) = getPar gref pe pcnds (rst ←u)
+getPar {PE = E ×ₚ PE} (rfp refPA ∷ (gref ←u)) pe (no d , pcnds) rst = getPar gref pe pcnds rst
+getPar {PE = E ×ₚ PE} (rfp refPA ∷ (u→ gref)) pe {sys} (yes d , pcnds) ((rst ←u) ←u) = (par refPA sys) ←u
+getPar {PE = E ×ₚ PE} (rfp refPA ∷ (u→ gref)) pe (yes d , pcnds) ((u→ rst) ←u) = u→ getPar gref pe pcnds (rst ←u)
+getPar {PE = E ×ₚ PE} (rfp refPA ∷ (u→ gref)) pe (no d , pcnds) rst = u→ getPar gref pe pcnds rst
+getPar {PE = E ×ₚ PE} (prfp prefPA ∷ (gref ←u)) (e ←u) {sys} (yes _ , pcnds) (rst ←u)
+  = par (prefPA e) sys ←u
+getPar {PE = E ×ₚ PE} (prfp prefPA ∷ (gref ←u)) (e ←u) (no _ , pcnds) (() ←u)
+getPar {PE = E ×ₚ PE} (prfp prefPA ∷ (gref ←u)) (u→ pe) pcnds (rst ←u) = getPar gref pe pcnds (rst ←u)
+getPar {PE = E ×ₚ PE} (prfp prefPA ∷ (u→ gref)) (e ←u) {sys} (yes x , pcnds) ((rst ←u) ←u)
+  = par (prefPA e) sys ←u
+getPar {PE = E ×ₚ PE} (prfp prefPA ∷ (u→ gref)) (e ←u) (yes x , pcnds) ((u→ rst) ←u) = u→∅
+getPar {PE = E ×ₚ PE} (prfp prefPA ∷ (u→ gref)) (e ←u) (no x , pcnds) (() ←u)
+getPar {PE = E ×ₚ PE} (prfp prefPA ∷ (u→ gref)) (u→ pe) pcnds (rst ←u) = u→ getPar gref pe pcnds (rst ←u)
+
+
 -- One needs to check that all refine records are turned into RefActionsApp
 -- Otherwise the extension of the refTheorem to GrefSpec will not hold.
-_$ʳᶠ_ : {refm : System varsB → System varsA} → GRefSpec {varsB = varsB} refm PE gspec
-        → (pe : pStoS (PE toMPSet)) → (sys : System varsB)
-        → RefSpecApp {varsA = varsA} {varsB = varsB} refm (gspec $ᵍˢ pe) sys
-_$ʳᶠ_ {gspec = gsp [] _} (rf []) pe sys = []
-_$ʳᶠ_ {gspec = gsp [] _} (rf (refSt ∷ ref)) pe sys = rfSt refSt apply sys ∷ (rf ref $ʳᶠ pe) sys
-_$ʳᶠ_ {gspec = gsp (act ∷ sp) _} (rf ([] , ind)) pe sys = [] , (rf ind $ʳᶠ pe) sys
-_$ʳᶠ_ {gspec = gsp (act ∷ sp) _} (rf (ract ∷ refA , ind)) pe sys
-  = let (rfs , rfsts) = (rf (refA , ind) $ʳᶠ pe) sys
-    in ((rf ract apply sys) ∷ rfs) , rfsts
-_$ʳᶠ_ {gspec = gsp [] _} (pst refSt ∷ gref) (e , pe) sys
-  = let w = (gref $ʳᶠ pe) sys
-    in ((prfSt refSt apply sys) toMPRStApp) e ∷ w
-_$ʳᶠ_ {gspec = gsp (act ∷ sp) _} (pst refSt ∷ gref) (e , pe) sys
-  = let (rfas , rsp) = (gref $ʳᶠ pe) sys
-    in (rfas , rsp addStApp ((prfSt refSt apply sys) toMPRStApp) e )
-((prf prefA ∷ left ind) $ʳᶠ (e , pe)) sys
-  = let (l , rm) = (ind $ʳᶠ pe) sys
-    in (((prf prefA apply sys) toMPRApp) e ∷ l) , rm
-((prf prefA ∷ right ind) $ʳᶠ (e , pe)) sys
-  = let rm = (ind $ʳᶠ pe) sys
-    in (((prf prefA apply sys) toMPRApp) e ∷ []) , rm
-((rfp refPA ∷ left ind) $ʳᶠ pe) sys
-  = let (l , rm) = (ind $ʳᶠ pe) sys
-    in {!!}
-((rfp refPA ∷ right ind) $ʳᶠ pe) sys = {!!}
-((prfp prefPA ∷ ind) $ʳᶠ pe) sys = {!!}
+_$ʳᶠ : {refm : System varsB → System varsA} → (gref : GRefSpec {varsA = varsA} {varsB = varsB} refm PE gspec)
+       → (pe : pStoUS PE) → (sys nsys : System varsB)
+       → let espec = (gextrSpec gref pe)
+         in (pcnds : PrConds espec sys)
+            → (rst : RestrWithSt espec sys nsys pcnds)
+       → RefSpecApp {varsA = varsA} {varsB = varsB} refm (gspec $ᵍˢ getPar gref pe pcnds rst) sys
+(ref $ʳᶠ) pe sys nsys pcnds (u→ rst) = refSpecApp∅
+-- Is there a way to remove more refSt ? Probably not.
+_$ʳᶠ {gspec = gsp [] .psp∅} (rf ref) pe sys nsys pcnds (rst ←u) = fmap (λ refSt → rfSt refSt apply sys) ref
+_$ʳᶠ {gspec = gsp (actA ∷ sp) .psp∅} (rf ([] , ref)) pe sys nsys pcnds (rst ←u)
+  = [] , ((rf ref $ʳᶠ) pe sys nsys pcnds (rst ←u))
+_$ʳᶠ {gspec = gsp (actA ∷ sp) .psp∅} (rf (refA ∷ lref , ref)) pe sys nsys (yes x , pcnds) ((rst ←u) ←u)
+  = rf refA apply sys ∷ [] , refSpecApp∅
+_$ʳᶠ {gspec = gsp (actA ∷ sp) .psp∅} (rf (refA ∷ lref , ref)) pe sys nsys (yes x , pcnds) ((u→ rst) ←u)
+  = (rf (lref , ref) $ʳᶠ) pe sys nsys pcnds (rst ←u)
+_$ʳᶠ {gspec = gsp (actA ∷ sp) .psp∅} (rf (refA ∷ lref , ref)) pe sys nsys (no x , pcnds) (rst ←u)
+  = (rf (lref , ref) $ʳᶠ) pe sys nsys pcnds (rst ←u)
+((pst refSt ∷ gref) $ʳᶠ) (e ←u) sys nsys (yes x , _) (rst ←u) = refSpecApp∅ addStApp (prfSt refSt apply sys e)
+((pst refSt ∷ gref) $ʳᶠ) (e ←u) sys nsys (no x , _) (() ←u)
+((pst refSt ∷ gref) $ʳᶠ) (u→ pe) sys nsys pcnds (rst ←u) = (gref $ʳᶠ) pe sys nsys pcnds (rst ←u)
+((prf prefA ∷ (gref ←u)) $ʳᶠ) (e ←u) sys nsys (yes x , _) (rst ←u)
+  = ((prf prefA apply sys) e ∷ []) , refSpecApp∅
+((prf prefA ∷ (gref ←u)) $ʳᶠ) (e ←u) sys nsys (no x , _) rst = {!!}
+((prf prefA ∷ (gref ←u)) $ʳᶠ) (u→ pe) sys nsys pcnds rst = {!!}
+((prf prefA ∷ (u→ gref)) $ʳᶠ) pe sys nsys pcnds rst = {!!}
+((rfp refPA ∷ (gref ←u)) $ʳᶠ) pe sys nsys pcnds rst = {!!}
+((rfp refPA ∷ (u→ gref)) $ʳᶠ) pe sys nsys pcnds rst = {!!}
+((prfp prefPA ∷ gref) $ʳᶠ) pe sys nsys pcnds rst = {!!}

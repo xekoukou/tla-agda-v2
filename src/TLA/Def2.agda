@@ -50,14 +50,30 @@ pStoS (S ×ₚ pd) = S × pStoS pd
 pStoS ⊤ₚ = ⊤′
 
 
+pStoUS : PSet {α} n → Set α
+pStoUS ⊤ₚ = ⊤′
+pStoUS (S ×ₚ pd) = S ⊎ (pStoUS pd)
+
+
+pattern u→_ a = right a
+pattern _←u a = left a
+
+-- Is this needed?
 _toMPSet : PSet {α} n → PSet {α} n
 (B ×ₚ pset) toMPSet = Maybe B ×ₚ (pset toMPSet)
 ⊤ₑ toMPSet = ⊤ₑ
 
 
+
 variable
   vars varsA varsB : VSet _
   PA PB PC PD PE : PSet _
+
+
+
+u→∅ : pStoUS PB
+u→∅ {PB = ⊤ₚ} = unit
+u→∅ {PB = B ×ₚ PB} = u→ u→∅ 
 
 
 -- Non Termporal so as to be used by Actions.
@@ -67,7 +83,7 @@ System (B ⊎⊥) = B
 
 
 variable
-  sys sysA sysB :  System _
+  sys nsys sysA sysB :  System _
 
 
 record Action {α n} (vars : VSet {α} n) : Set (lsuc α) where
@@ -97,14 +113,14 @@ open ConAction public
 simpleAction : ConAction {vars = vars} act → (sys : System vars) → (cnd : (cond act) sys) → System vars
 simpleAction cact sys cnd = fst (impl cact sys cnd)
 
-record PConAction {α n} {vars : VSet {α} n} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
+record ConPAction {α n} {vars : VSet {α} n} {B : Set α} (pact : PAction B vars) : Set (lsuc α) where
   field
     par : System vars → B
     impl : (sys : System vars) → (cnd : (cond (pact (par sys))) sys) → ∃ (λ nsys → resp (pact (par sys)) sys nsys)
-open PConAction public
+open ConPAction public
 
 
-simplePAction : (cn : PConAction {vars = vars} pact) → ((sys : System vars) → (cond (pact (par cn sys))) sys → System vars)
+simplePAction : (cn : ConPAction {vars = vars} pact) → ((sys : System vars) → (cond (pact (par cn sys))) sys → System vars)
 simplePAction cact sys cnd = fst ((impl cact) sys cnd)
 
 
@@ -139,7 +155,7 @@ variable
 -- PSpec is assumed to be a subset of a PSpec.
 -- TODO How do we split a PSpec and how do we compose Specs?
 ConPSpec : (spec : PSpec {α} vars PB) → Set (lsuc α)
-ConPSpec (pact +psp+ spec) = PConAction pact × ConPSpec spec
+ConPSpec (pact +psp+ spec) = ConPAction pact × ConPSpec spec
 ConPSpec s∅ = ⊤′
 
 
@@ -154,13 +170,12 @@ ConGSpec gspec = ConSpec (sp gspec) × ConPSpec (psp gspec)
 
 
 
-
-_$ᵖˢ_ : (pspec : PSpec vars PB) → (b : pStoS PB) → Spec vars
-(pact +psp+ spec) $ᵖˢ b = pact (fst b) ∷ (spec $ᵖˢ (snd b))
+_$ᵖˢ_ : (pspec : PSpec vars PB) → (b : pStoUS PB) → List (Action vars)
+(pact +psp+ spec) $ᵖˢ (b ←u) = pact b ∷ []
+(pact +psp+ spec) $ᵖˢ (u→ b) = spec $ᵖˢ b
 psp∅ $ᵖˢ b = []
 
-
-_$ᵍˢ_ : (spec : GSpec vars PB) → (b : pStoS PB) → Spec vars
+_$ᵍˢ_ : (spec : GSpec vars PB) → (b : pStoUS PB) → Spec vars
 gspec $ᵍˢ b = ((psp gspec) $ᵖˢ b) ++ (sp gspec)
 
 
@@ -175,27 +190,34 @@ UnResp (act ∷ spec) sys nsys (no x , pcnds) = UnResp spec sys nsys pcnds
 
 
 
-Restr : (spec : Spec {α} vars) → (sys : System vars) → (nsys : System vars) → Set α
-Restr spec sys nsys = (pcnds : PrConds spec sys) → UnResp spec sys nsys pcnds
+Restr : (spec : Spec {α} vars) → (sys : System vars) → (nsys : System vars)
+        → (pcnds : PrConds spec sys) → Set α
+Restr spec sys nsys pcnds = UnResp spec sys nsys pcnds
 
 
 Stut : (sys : System {α} vars) → (System {α} vars) → Set α
 Stut sys nsys = sys ≡ nsys
 
+RestrWithSt : (spec : Spec {α} vars) → (sys : System vars) → (nsys : System vars)
+              → (pcnds : PrConds spec sys) → Set α
+RestrWithSt {vars = vars} spec sys nsys pcnds = Restr spec sys nsys pcnds ⊎ Stut {vars = vars} sys nsys
 
-TRestr : (spec : Spec {α} vars) → (beh : (System vars) ʷ) → (Set α) ʷ
-TRestr spec beh = (⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh))
+TRestr : (spec : Spec {α} vars) → (beh : (System vars) ʷ)
+         → (pcnds : [ ⟨ PrConds spec ⟩ $ʷ beh ]) → (Set α) ʷ
+TRestr spec beh pcnds = (⟨ Restr spec ⟩ $ʷ beh $ʷ (○ beh) $ʷ pcnds)
 
 TStut : (beh : (System {α} vars) ʷ) → (Set α) ʷ
 TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ʷ beh $ʷ (○ beh)
 
-
-
+TRestrWithSt : (spec : Spec {α} vars) → (beh : (System vars) ʷ)
+               → (pcnds : [ ⟨ PrConds spec ⟩ $ʷ beh ]) → (Set α) ʷ
+TRestrWithSt {vars = vars} spec beh pcnds = TRestr spec beh pcnds ∨ TStut {vars = vars} beh
 
 
 -- MPAction is a PAction that takes Maybe B as input.
 -- This is necessary because we will not always have a B.
 -- The presence of B is determined by the action taken at time t.
+-- TODO Probably not required ?
 MPAction : (B : Set α) → (vars : VSet {α} n) → Set (lsuc α)
 MPAction B vars = Maybe B → Action vars
 
@@ -204,6 +226,7 @@ MPAction B vars = Maybe B → Action vars
 cond ⊥-Action sys = ⊥′
 resp ⊥-Action sys nsys = ⊥′
 
+-- Not required.
 _toMPAction : PAction B vars → MPAction B vars
 (pa toMPAction) nothing  = ⊥-Action
 (pa toMPAction) (just x) = pa x
@@ -212,22 +235,27 @@ _toMPAction : PAction B vars → MPAction B vars
 
 -- To restrict the general case of specification, we need to lift all PActions into
 -- MActions.
+-- Not required
 _toMPSpec : PSpec vars PB → PSpec vars (PB toMPSet)
 (pact +psp+ pspec) toMPSpec = (pact toMPAction) +psp+ (pspec toMPSpec)
 psp∅ toMPSpec = psp∅
 
 
+-- Not required
 _toMGSpec : GSpec vars PB → GSpec vars (PB toMPSet)
 sp (gspec toMGSpec) = sp gspec
 psp (gspec toMGSpec) = (psp gspec) toMPSpec
 
 
+-- These might not be neccessary
 
-PRestr : (pspec : PSpec {α} vars PB) → (sys : System vars) → (nsys : System vars) → pStoS (PB toMPSet) → Set α
-PRestr pspec sys nsys mpb = Restr ((pspec toMPSpec) $ᵖˢ mpb) sys nsys
+-- PRestr : (pspec : PSpec {α} vars PB) → (sys : System vars) → (nsys : System vars) → pStoUS PB → Set α
+-- PRestr pspec sys nsys mpb = Restr (pspec $ᵖˢ mpb) sys nsys
 
 
-TPRestr : (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ)
-          → (tmpb : ( pStoS (PB toMPSet) ) ʷ) → (Set α ) ʷ
-TPRestr pspec beh tmpb = ⟨ Restr ⟩ $ʷ (⟨ (pspec toMPSpec) $ᵖˢ_ ⟩ $ʷ tmpb) $ʷ beh $ʷ ○ beh
+-- TPRestr : (pspec : PSpec {α} vars PB) → (beh : (System vars) ʷ)
+--           → (tmpb : ( pStoUS PB ) ʷ) → (Set α ) ʷ
+-- TPRestr pspec beh tmpb = ⟨ Restr ⟩ $ʷ (⟨ pspec $ᵖˢ_ ⟩ $ʷ tmpb) $ʷ beh $ʷ ○ beh
 
+-- -- Instead of defining a GRestr, we first apply b at gspec which results in a spec, and then we can have the
+-- -- standard restriction of the spec. (Restr and RestrWithSt)
