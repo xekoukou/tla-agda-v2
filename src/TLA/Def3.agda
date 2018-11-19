@@ -3,6 +3,7 @@ module TLA.Def3 where
 
 open import Prelude.Nat public
 open import Prelude.Unit public
+open import Prelude.Function using (case_of_)
 open import Prelude.Vec public
 open import Prelude.Sum renaming (Either to _⊎_ ; right to u→_ ; left to _←u) public
 open import Prelude.Product public
@@ -15,7 +16,10 @@ open import LTL.Stateless public
 variable
   α : Level
   l : Nat
+  l1 : Nat
+  l2 : Nat
   el : Nat
+  esl : Nat
   bl : Nat
   E : Set α
   B : Set α
@@ -36,7 +40,18 @@ _toUS (E ∷ pd@(_ ∷ _)) = E ⊎ (pd toUS)
 _toUS (E ∷ pd) = E
 
 
+split : (PE : VSet {α} l1) → (PB : VSet {α} l2) → (PE v++ PB) toUS → (PE toUS) ⊎ (PB toUS)
+split (E ∷ []) (x₁ ∷ PB) (x ←u) = x ←u
+split (E ∷ []) PB@(_ ∷ _) (u→ x) = u→ x
+split (E ∷ _ ∷ _) PB (x ←u) = (x ←u) ←u
+split (E ∷ PE@(_ ∷ _)) PB (u→ x)
+  = case (split PE PB x) of
+    λ { (nx ←u) → (u→ nx) ←u ; (u→ nx) → u→ nx}
+
+
 System = _toPS
+
+
 
 
 record Action {α n} (E : Set α) (vars : VSet {α} n) : Set (lsuc α) where
@@ -62,6 +77,7 @@ variable
 
 variable
   PE : VSet {α} el
+  PEST : VSet {α} esl
   PB : VSet {α} bl
 
 data Spec {α n} (vars : VSet {α} n) : ∀{sl} → (PE : VSet {α} sl) → Set (lsuc α) where
