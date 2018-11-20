@@ -10,6 +10,7 @@ open import Prelude.Product public
 open import Agda.Primitive public
 
 open import LTL.Core public
+open import LTL.Sum public
 open import LTL.Stateless public
 
 
@@ -56,8 +57,8 @@ System = _toPS
 
 record Action {α n} (E : Set α) (vars : VSet {α} n) : Set (lsuc α) where
   field
-    cond : E → (sys : System vars) → Set α
-    resp : E → (sys : System vars) → (nsys : System vars) → Set α
+    cond : (e : E) → (sys : System vars) → Set α
+    resp : (e : E) → (sys : System vars) → (nsys : System vars) → Set α
 
 open Action public
 
@@ -80,6 +81,7 @@ variable
   PEST : VSet {α} esl
   PB : VSet {α} bl
 
+infixr 5 _∷ₛₚ_
 data Spec {α n} (vars : VSet {α} n) : ∀{sl} → (PE : VSet {α} sl) → Set (lsuc α) where
   _∷ₛₚ_ : (act : Action E vars) → (pspec : Spec vars PE) → Spec vars (E ∷ PE)
   _■ : (act : Action E vars) → Spec vars (E ∷ [])
@@ -105,3 +107,6 @@ TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ʷ beh $ʷ (○ beh)
 <_>_$ₜ_ : (PE : VSet el) → (Spec {α} vars PE) → (pe : (PE toUS) ʷ) → (beh : (System vars) ʷ) → (Set α) ʷ
 (< PE > spec $ₜ pe) beh = ⟨ < PE > spec $_ ⟩ $ʷ pe $ʷ beh $ʷ ○ beh
 
+
+GRestr : {PE : VSet el} → (spec : Spec {α} vars PE) → (beh : (System vars) ʷ) → (pe : (PE toUS) ʷ) → (Set α) ʷ
+GRestr {vars = vars} {PE = PE} spec beh pe = (< PE > spec $ₜ pe) beh ∨ TStut {vars = vars} beh
