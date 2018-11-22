@@ -50,7 +50,6 @@ data RSpecSt {α n} {varsB : VSet {α} n} {varsA : VSet {α} n}
   []ᵣₛₜ : RSpecSt refm []
 
 
-
 exSpec : {refm : System varsB → System varsA} → RSpec {varsB = varsB} {varsA = varsA} refm PE spec
               → Spec varsB PE
 exSpec (ref m∷ᵣₛₚ rspec) = (ract ref) ∷ₛₚ (exSpec rspec)
@@ -73,40 +72,38 @@ exPar (ref ∷ᵣₛₚ rspec) (e ←u) sys = par ref e sys ←u
 exPar (ref ∷ᵣₛₚ rspec) (u→ pe) sys = u→ exPar rspec pe sys
 
 
-
 refTheorem : {refm : System varsB → System varsA}
              → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
               → (sys nsys : (System varsB)) → (pe : (PE toUS))
-             → (< PE > exSpec rspec  $ pe) sys nsys → (< PB > spec $ (exPar rspec pe sys)) (refm sys) (refm nsys)
-refTheorem {PE = .(RE ref) ∷ _ ∷ _} {PB = _ ∷ _ ∷ _} (ref m∷ᵣₛₚ rspec) sys nsys (e ←u) rst = embed ref e sys nsys rst
-refTheorem {PE = .(RE ref) ∷ _ ∷ _} {PB = _ ∷ _ ∷ _} (ref m∷ᵣₛₚ rspec) sys nsys (u→ pe) rst = refTheorem rspec sys nsys pe rst
-refTheorem {PE = .(RE ref) ∷ _ ∷ _} {PB = _ ∷ _ ∷ _} (ref ∷ᵣₛₚ rspec) sys nsys (e ←u) rst = embed ref e sys nsys rst
-refTheorem {PE = .(RE ref) ∷ _ ∷ _} {PB = _ ∷ _ ∷ _} (ref ∷ᵣₛₚ rspec) sys nsys (u→ pe) rst = refTheorem rspec sys nsys pe rst
--- refTheorem {PE = .(RE ref ∷ [])} {PB = .(_ ∷ [])} (ref ᵣ■) sys nsys pe rst = embed ref pe sys nsys rst
+             → (exSpec rspec  $ₛₚ pe) sys nsys → (spec $ₛₚ (exPar rspec pe sys)) (refm sys) (refm nsys)
+refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (e ←u) rst = embed ref e sys nsys rst
+refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (u→ pe) rst = refTheorem rspec sys nsys pe rst
+refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (e ←u) rst = embed ref e sys nsys rst
+refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (u→ pe) rst = refTheorem rspec sys nsys pe rst
+refTheorem []ᵣₛₚ sys nsys () rst
+
 
 
 trefTheorem : {refm : System varsB → System varsA}
              → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
              → (beh : (System varsB) ʷ) → (pe : (PE toUS) ʷ)
-             → [ ((< PE > exSpec rspec  $ₜ pe) beh) ⇒ ((< PB > spec $ₜ (⟨ exPar rspec ⟩ $ʷ pe $ʷ beh) ) (⟨ refm ⟩ $ʷ beh)) ]
+             → [ ((exSpec rspec  $ₛₚₜ pe) beh) ⇒ ((spec $ₛₚₜ (⟨ exPar rspec ⟩ $ʷ pe $ʷ beh) ) (⟨ refm ⟩ $ʷ beh)) ]
 trefTheorem rspec beh pe n rst = refTheorem rspec(beh n) (beh (suc n)) (pe n) rst
 
 
 refTheoremSt : {refm : System varsB → System varsA}
              → (rspec : RSpecSt {varsB = varsB} {varsA = varsA} refm PE)
               → (sys nsys : (System varsB)) → (pe : (PE toUS))
-             → (< PE > exSpecSt rspec $ pe) sys nsys → Stut {vars = varsA} (refm sys) (refm nsys)
-refTheoremSt (ref ∷ᵣₛₜ rspec@(_ ∷ᵣₛₜ _)) sys nsys (e ←u) rst = isConst ref e sys nsys rst
-refTheoremSt (ref ∷ᵣₛₜ rspec@(_ ∷ᵣₛₜ _)) sys nsys (u→ pe) rst = refTheoremSt rspec sys nsys pe rst
--- refTheoremSt (ref ∷ᵣₛₜ (_ ᵣₛₜ■)) sys nsys (e ←u) rst = isConst ref e sys nsys rst
--- refTheoremSt (_ ∷ᵣₛₜ (ref ᵣₛₜ■)) sys nsys (u→ pe) rst = isConst ref pe sys nsys rst
--- refTheoremSt (ref ᵣₛₜ■) sys nsys pe rst = isConst ref pe sys nsys rst
+             → (exSpecSt rspec $ₛₚ pe) sys nsys → Stut {vars = varsA} (refm sys) (refm nsys)
+refTheoremSt (ref ∷ᵣₛₜ rspec) sys nsys (e ←u) rst = isConst ref e sys nsys rst
+refTheoremSt (ref ∷ᵣₛₜ rspec) sys nsys (u→ pe) rst = refTheoremSt rspec sys nsys pe rst
+refTheoremSt []ᵣₛₜ sys nsys () rst
 
 
 trefTheoremSt : {refm : System varsB → System varsA}
              → (rspec : RSpecSt {varsB = varsB} {varsA = varsA} refm PE)
               → (beh : (System varsB) ʷ) → (pe : (PE toUS) ʷ)
-             → [ (< PE > exSpecSt rspec $ₜ pe) beh ⇒ TStut {vars = varsA} (⟨ refm ⟩ $ʷ beh) ]
+             → [ (exSpecSt rspec $ₛₚₜ pe) beh ⇒ TStut {vars = varsA} (⟨ refm ⟩ $ʷ beh) ]
 trefTheoremSt rspec beh pe n x = refTheoremSt rspec (beh n) (beh (suc n)) (pe n) x
 
 
@@ -117,9 +114,9 @@ GRestr : {PE : VSet {α} el} → {PB : VSet {α} bl} → {PEST : VSet {α} esl} 
   → (sys nsys : (System varsB)) → (pe : ((PE v++ PEST) toUS))
   → Set α
 GRestr {varsB = varsB} {varsA = varsA} {PE} {PB} {PEST} {spec = spec} {refm} rspec rspecSt sys nsys pe
-  = either (λ pe → (< PE > exSpec rspec  $ pe) sys nsys
-                   → (< PB > spec $ (exPar rspec pe sys)) (refm sys) (refm nsys) )
-           (λ pe → (< PEST > exSpecSt rspecSt $ pe) sys nsys
+  = either (λ pe → (exSpec rspec  $ₛₚ pe) sys nsys
+                   → (spec $ₛₚ (exPar rspec pe sys)) (refm sys) (refm nsys) )
+           (λ pe → (exSpecSt rspecSt $ₛₚ pe) sys nsys
                    → Stut {vars = varsA} (refm sys) (refm nsys))
            (split PE PEST pe)
 
@@ -142,3 +139,4 @@ TGRefTheorem : {refm : System varsB → System varsA}
   → (beh : (System varsB) ʷ) → (pe : ((PE v++ PEST) toUS) ʷ)
   → [ ⟨ GRestr rspec rspecSt ⟩ $ʷ beh $ʷ ○ beh $ʷ pe ]
 TGRefTheorem rspec rspecSt beh pe n = GRefTheorem rspec rspecSt (beh n) (beh (suc n)) (pe n)
+

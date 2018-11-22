@@ -110,15 +110,17 @@ Stut sys nsys = sys ≡ nsys
 TStut : (beh : (System {α} vars) ʷ) → (Set α) ʷ
 TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ʷ beh $ʷ (○ beh)
 
-<_>_$_ : (PE : VSet el) → (Spec {α} vars PE) → (pe : PE toUS) → (sys nsys : System vars) → Set α
-(< E ∷ PE > act ∷ₛₚ spec $ (e ←u)) sys nsys = cond act e sys × resp act e sys nsys
-(< E ∷ PE > act ∷ₛₚ spec $ (u→ pe)) sys nsys = (< PE > spec $ pe) sys nsys
+infixr -20 _$ₛₚ_
+_$ₛₚ_ : (Spec {α} vars PE) → (pe : PE toUS) → (sys nsys : System vars) → Set α
+(act ∷ₛₚ spec $ₛₚ (e ←u)) sys nsys = cond act e sys × resp act e sys nsys
+(act ∷ₛₚ spec $ₛₚ (u→ pe)) sys nsys = (spec $ₛₚ pe) sys nsys
+([]ₛₚ $ₛₚ ()) sys nsys
 
 
-
-<_>_$ₜ_ : (PE : VSet el) → (Spec {α} vars PE) → (pe : (PE toUS) ʷ) → (beh : (System vars) ʷ) → (Set α) ʷ
-(< PE > spec $ₜ pe) beh = ⟨ < PE > spec $_ ⟩ $ʷ pe $ʷ beh $ʷ ○ beh
+infixr -20 _$ₛₚₜ_
+_$ₛₚₜ_ : (Spec {α} vars PE) → (pe : (PE toUS) ʷ) → (beh : (System vars) ʷ) → (Set α) ʷ
+(spec $ₛₚₜ pe) beh = ⟨ spec $ₛₚ_ ⟩ $ʷ pe $ʷ beh $ʷ ○ beh
 
 
 Restr : {PE : VSet el} → (spec : Spec {α} vars PE) → (beh : (System vars) ʷ) → (pe : (PE toUS) ʷ) → (Set α) ʷ
-Restr {vars = vars} {PE = PE} spec beh pe = (< PE > spec $ₜ pe) beh ∨ TStut {vars = vars} beh
+Restr {vars = vars} {PE = PE} spec beh pe = (spec $ₛₚₜ pe) beh ∨ TStut {vars = vars} beh
