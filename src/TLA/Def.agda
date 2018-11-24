@@ -1,62 +1,63 @@
 module TLA.Def where
 
 
-open import Prelude.Nat public
-open import Prelude.Unit public
-open import Prelude.Function using (case_of_)
-open import Prelude.Vec public
-open import Prelude.Sum renaming (Either to _⊎_) public
-open import Prelude.Product public
-open import Prelude.Empty public
-open import Agda.Primitive public
+open import Data.Nat hiding (_⊔_)
+open import Data.Unit using (⊤)
+open import Function using (case_of_)
+open import Data.Vec hiding (split)
+open import Data.Sum
+open import Data.Product
+open import Data.Empty
+open import Relation.Binary.PropositionalEquality
+open import Level renaming (zero to lzero ; suc to lsuc ; Lift to ℓ↑)
 
-open import LTL.Core public
-open import LTL.Sum public
-open import LTL.Stateless public
+open import LTL.Core
+open import LTL.Sum
+open import LTL.Stateless
 
 
-pattern u→_ pe = right pe
-pattern _←u e  = left e
+pattern u→_ pe = inj₂ pe
+pattern _←u e  = inj₁ e
 
 variable
   α : Level
-  l : Nat
-  l1 : Nat
-  l2 : Nat
-  el : Nat
-  esl : Nat
-  bl : Nat
+  l : ℕ
+  l1 : ℕ
+  l2 : ℕ
+  el : ℕ
+  esl : ℕ
+  bl : ℕ
   E : Set α
   B : Set α
 
 
 
 
-VSet : (n : Nat) → Set (lsuc α)
+VSet : (n : ℕ) → Set (lsuc α)
 VSet {α} n = Vec (Set α) n
 
-V⊤ : (n : Nat) → VSet {lzero} n
+V⊤ : (n : ℕ) → VSet {lzero} n
 V⊤ zero = []
 V⊤ (suc n) = ⊤ ∷ V⊤ n
 
-V⊤′ : (n : Nat) → VSet {α} n
+V⊤′ : (n : ℕ) → VSet {α} n
 V⊤′ zero = []
-V⊤′ (suc n) = ⊤′ ∷ V⊤′ n
+V⊤′ (suc n) = ℓ↑ _ ⊤ ∷ V⊤′ n
 
-VS : Set α → (n : Nat) → VSet {α} n
+VS : Set α → (n : ℕ) → VSet {α} n
 VS A zero = []
 VS A (suc n) = A ∷ VS A n
 
 _toPS : VSet {α} l → Set α
 _toPS (E ∷ pd) = E × (pd toPS)
-_toPS [] = ⊤′
+_toPS [] = ℓ↑ _ ⊤
 
 _toUS : VSet {α} l → Set α
 _toUS (E ∷ pd) = E ⊎ (pd toUS)
-_toUS [] = ⊥′
+_toUS [] = ℓ↑ _ ⊥
 
 
-split : (PE : VSet {α} l1) → (PB : VSet {α} l2) → (PE v++ PB) toUS → (PE toUS) ⊎ (PB toUS)
+split : (PE : VSet {α} l1) → (PB : VSet {α} l2) → (PE ++ PB) toUS → (PE toUS) ⊎ (PB toUS)
 split [] PB x = u→ x
 split (E ∷ PE) PB (x ←u) = (x ←u) ←u
 split (E ∷ PE) PB (u→ x)
@@ -108,7 +109,7 @@ Stut : (sys : System {α} vars) → (System {α} vars) → Set α
 Stut sys nsys = sys ≡ nsys
 
 TStut : (beh : (System {α} vars) ʷ) → (Set α) ʷ
-TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ʷ beh $ʷ (○ beh)
+TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ beh $ (○ beh)
 
 infixr -20 _$ₛₚ_
 _$ₛₚ_ : (Spec {α} vars PE) → (pe : PE toUS) → (sys nsys : System vars) → Set α
@@ -119,7 +120,7 @@ _$ₛₚ_ : (Spec {α} vars PE) → (pe : PE toUS) → (sys nsys : System vars) 
 
 infixr -20 _$ₛₚₜ_
 _$ₛₚₜ_ : (Spec {α} vars PE) → (pe : (PE toUS) ʷ) → (beh : (System vars) ʷ) → (Set α) ʷ
-(spec $ₛₚₜ pe) beh = ⟨ spec $ₛₚ_ ⟩ $ʷ pe $ʷ beh $ʷ ○ beh
+(spec $ₛₚₜ pe) beh = ⟨ spec $ₛₚ_ ⟩ $ pe $ beh $ ○ beh
 
 
 Restr : {PE : VSet el} → (spec : Spec {α} vars PE) → (beh : (System vars) ʷ) → (pe : (PE toUS) ʷ) → (Set α) ʷ

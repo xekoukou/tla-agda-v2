@@ -1,5 +1,14 @@
 module TLA.Refine where
 
+open import Level renaming (zero to lzero ; suc to lsuc ; Lift to ℓ↑)
+open import Data.Product
+open import Relation.Binary.PropositionalEquality hiding ([_])
+open import Data.Nat
+open import Data.Sum
+open import Data.Vec hiding ([_] ; split)
+
+open import LTL.Core
+open import LTL.Stateless
 open import TLA.Def
 
 
@@ -28,7 +37,7 @@ open RefStAction public
 
 
 variable
-  la lb : Nat
+  la lb : ℕ
   varsB : VSet {α} lb
   varsA : VSet {α} la
   refm : System varsB → System varsA
@@ -87,7 +96,7 @@ refTheorem []ᵣₛₚ sys nsys () rst
 trefTheorem : {refm : System varsB → System varsA}
              → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
              → (beh : (System varsB) ʷ) → (pe : (PE toUS) ʷ)
-             → [ ((exSpec rspec  $ₛₚₜ pe) beh) ⇒ ((spec $ₛₚₜ (⟨ exPar rspec ⟩ $ʷ pe $ʷ beh) ) (⟨ refm ⟩ $ʷ beh)) ]
+             → [ ((exSpec rspec  $ₛₚₜ pe) beh) ⇒ ((spec $ₛₚₜ (⟨ exPar rspec ⟩ $ pe $ beh) ) (⟨ refm ⟩ $ beh)) ]
 trefTheorem rspec beh pe n rst = refTheorem rspec(beh n) (beh (suc n)) (pe n) rst
 
 
@@ -103,7 +112,7 @@ refTheoremSt []ᵣₛₜ sys nsys () rst
 trefTheoremSt : {refm : System varsB → System varsA}
              → (rspec : RSpecSt {varsB = varsB} {varsA = varsA} refm PE)
               → (beh : (System varsB) ʷ) → (pe : (PE toUS) ʷ)
-             → [ (exSpecSt rspec $ₛₚₜ pe) beh ⇒ TStut {vars = varsA} (⟨ refm ⟩ $ʷ beh) ]
+             → [ (exSpecSt rspec $ₛₚₜ pe) beh ⇒ TStut {vars = varsA} (⟨ refm ⟩ $ beh) ]
 trefTheoremSt rspec beh pe n x = refTheoremSt rspec (beh n) (beh (suc n)) (pe n) x
 
 
@@ -111,19 +120,20 @@ GRestr : {PE : VSet {α} el} → {PB : VSet {α} bl} → {PEST : VSet {α} esl} 
          → {refm : System varsB → System varsA}
   → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
   → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
-  → (sys nsys : (System varsB)) → (pe : ((PE v++ PEST) toUS))
+  → (sys nsys : (System varsB)) → (pe : ((PE ++ PEST) toUS))
   → Set α
 GRestr {varsB = varsB} {varsA = varsA} {PE} {PB} {PEST} {spec = spec} {refm} rspec rspecSt sys nsys pe
-  = either (λ pe → (exSpec rspec  $ₛₚ pe) sys nsys
+  = ([_,_] (λ pe → (exSpec rspec  $ₛₚ pe) sys nsys
                    → (spec $ₛₚ (exPar rspec pe sys)) (refm sys) (refm nsys) )
            (λ pe → (exSpecSt rspecSt $ₛₚ pe) sys nsys
                    → Stut {vars = varsA} (refm sys) (refm nsys))
-           (split PE PEST pe)
+    ) (split PE PEST pe)
+    
 
 GRefTheorem : {refm : System varsB → System varsA}
   → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
   → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
-  → (sys nsys : (System varsB)) → (pe : ((PE v++ PEST) toUS))
+  → (sys nsys : (System varsB)) → (pe : ((PE ++ PEST) toUS))
   → GRestr rspec rspecSt sys nsys pe
 GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe with split PE PEST pe
 GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe | x ←u
@@ -136,7 +146,7 @@ GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe | u→_ x
 TGRefTheorem : {refm : System varsB → System varsA}
   → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
   → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
-  → (beh : (System varsB) ʷ) → (pe : ((PE v++ PEST) toUS) ʷ)
-  → [ ⟨ GRestr rspec rspecSt ⟩ $ʷ beh $ʷ ○ beh $ʷ pe ]
+  → (beh : (System varsB) ʷ) → (pe : ((PE ++ PEST) toUS) ʷ)
+  → [ ⟨ GRestr rspec rspecSt ⟩ $ beh $ ○ beh $ pe ]
 TGRefTheorem rspec rspecSt beh pe n = GRefTheorem rspec rspecSt (beh n) (beh (suc n)) (pe n)
 
