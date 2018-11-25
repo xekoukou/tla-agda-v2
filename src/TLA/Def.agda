@@ -6,7 +6,7 @@ open import Data.Unit using (⊤)
 open import Function using (case_of_)
 open import Data.Vec hiding (split)
 open import Data.Sum
-open import Data.Product
+open import Data.Product renaming (proj₁ to fst ; proj₂ to snd)
 open import Data.Empty
 open import Relation.Binary.PropositionalEquality
 open import Level renaming (zero to lzero ; suc to lsuc ; Lift to ℓ↑)
@@ -105,8 +105,15 @@ variable
   spec : Spec _ _
 
 
+
+_≡_all : ∀{n} → {PE : VSet {α} n} → System PE → System PE → Set α
+_≡_all {PE = []} sys nsys = ℓ↑ _ ⊤
+_≡_all {PE = x ∷ PE} sys nsys = fst sys ≡ fst nsys × (snd sys ≡ snd nsys all)
+
+
+
 Stut : (sys : System {α} vars) → (System {α} vars) → Set α
-Stut sys nsys = sys ≡ nsys
+Stut sys nsys = sys ≡ nsys all
 
 TStut : (beh : (System {α} vars) ʷ) → (Set α) ʷ
 TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ beh $ (○ beh)

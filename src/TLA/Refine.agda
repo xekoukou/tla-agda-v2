@@ -9,7 +9,9 @@ open import Data.Vec hiding ([_] ; split)
 
 open import LTL.Core
 open import LTL.Stateless
+
 open import TLA.Def
+open import TLA.Utils
 
 
 
@@ -19,9 +21,9 @@ record RefAction {α n k}{varsB : VSet {α} k} {varsA : VSet {α} n}
     RE : Set α
     ract : Action RE varsB
     par : RE → System varsB → B
-    embed : (e : RE) → (vs : System varsB) → (nvs : System varsB)
-            → cond ract e vs × resp ract e vs nvs
-            → (cond actA) (par e vs) (refm vs) × (resp actA) (par e vs) (refm vs) (refm nvs)
+    embed : (e : RE) → (sys : System varsB) → (nsys : System varsB)
+            → cond ract e sys × resp ract e sys nsys
+            → (cond actA) (par e sys) (refm sys) × (resp actA) (par e sys) (refm sys) (refm nsys)
 open RefAction public
 
 
@@ -30,9 +32,9 @@ record RefStAction {α n k}{varsB : VSet {α} k} {varsA : VSet {α} n}
   field
     RE : Set α
     ract : Action RE varsB
-    isConst : (e : RE) → (vs : System varsB) → (nvs : System varsB)
-            → cond ract e vs × resp ract e vs nvs
-            → refm vs ≡ refm nvs
+    isConst : (e : RE) → (sys : System varsB) → (nsys : System varsB)
+            → cond ract e sys × resp ract e sys nsys
+            → refm sys ≡ refm nsys all
 open RefStAction public
 
 
