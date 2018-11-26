@@ -20,10 +20,7 @@ _except_!=_ {PE = []} sys () nv
 _except_!=_ {PE = E ∷ PE} sys zero nv = nv , snd sys
 _except_!=_ {PE = E ∷ PE} sys (suc i) nv = fst sys , snd sys except i != nv 
 
--- Use _≡_all . This is merely a link.
-_≡_all' : ∀{n} → {PE : VSet {α} n} → System PE → System PE → Set α
-_≡_all' = _≡_all
-
+-- _≡_all in TLA.Def to pointwise have equality for all.
 
 _≡_except_ : ∀{n} → {PE : VSet {α} n} → System PE → System PE → (i : Fin n) → Set α
 _≡_except_ {PE = []} sys nsys ()

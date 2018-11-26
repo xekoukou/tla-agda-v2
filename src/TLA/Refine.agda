@@ -20,7 +20,7 @@ record RefAction {α n k}{varsB : VSet {α} k} {varsA : VSet {α} n}
   field
     RE : Set α
     ract : Action RE varsB
-    par : RE → System varsB → B
+    par : (e : RE) → (sys : System varsB) → B
     embed : (e : RE) → (sys : System varsB) → (nsys : System varsB)
             → cond ract e sys × resp ract e sys nsys
             → (cond actA) (par e sys) (refm sys) × (resp actA) (par e sys) (refm sys) (refm nsys)
