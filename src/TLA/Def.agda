@@ -19,45 +19,33 @@ open import LTL.Stateless
 pattern u→_ pe = inj₂ pe
 pattern _←u e  = inj₁ e
 
-variable
-  α : Level
-  l : ℕ
-  l1 : ℕ
-  l2 : ℕ
-  el : ℕ
-  esl : ℕ
-  bl : ℕ
-  E : Set α
-  B : Set α
 
 
-
-
-VSet : (n : ℕ) → Set (lsuc α)
+VSet : ∀{α} → (n : ℕ) → Set (lsuc α)
 VSet {α} n = Vec (Set α) n
 
 V⊤ : (n : ℕ) → VSet {lzero} n
 V⊤ zero = []
 V⊤ (suc n) = ⊤ ∷ V⊤ n
 
-V⊤′ : (n : ℕ) → VSet {α} n
+V⊤′ : ∀{α} → (n : ℕ) → VSet {α} n
 V⊤′ zero = []
 V⊤′ (suc n) = ℓ↑ _ ⊤ ∷ V⊤′ n
 
-VS : Set α → (n : ℕ) → VSet {α} n
+VS : ∀{α} → Set α → (n : ℕ) → VSet {α} n
 VS A zero = []
 VS A (suc n) = A ∷ VS A n
 
-_toPS : VSet {α} l → Set α
+_toPS : ∀{α l} → VSet {α} l → Set α
 _toPS (E ∷ pd) = E × (pd toPS)
 _toPS [] = ℓ↑ _ ⊤
 
-_toUS : VSet {α} l → Set α
+_toUS : ∀{α l} → VSet {α} l → Set α
 _toUS (E ∷ pd) = E ⊎ (pd toUS)
 _toUS [] = ℓ↑ _ ⊥
 
 
-split : (PE : VSet {α} l1) → (PB : VSet {α} l2) → (PE ++ PB) toUS → (PE toUS) ⊎ (PB toUS)
+split : ∀{α l1 l2} → (PE : VSet {α} l1) → (PB : VSet {α} l2) → (PE ++ PB) toUS → (PE toUS) ⊎ (PB toUS)
 split [] PB x = u→ x
 split (E ∷ PE) PB (x ←u) = (x ←u) ←u
 split (E ∷ PE) PB (u→ x)
@@ -85,50 +73,41 @@ record ConAction {α n}  {E : Set α} {vars : VSet {α} n} (act : Action E vars)
     safety : (sys : System vars) → (cnd : ((cond act) (par sys)) sys) → (resp act) (par sys) sys (impl sys cnd)
 open ConAction public
 
-variable
-  vars : VSet {α} l
-  act : Action  E vars
-  
 
 
-variable
-  PE : VSet {α} el
-  PEST : VSet {α} esl
-  PB : VSet {α} bl
 
 infixr 5 _∷ₛₚ_
 data Spec {α n} (vars : VSet {α} n) : ∀{sl} → (PE : VSet {α} sl) → Set (lsuc α) where
-  _∷ₛₚ_ : (act : Action E vars) → (pspec : Spec vars PE) → Spec vars (E ∷ PE)
+  _∷ₛₚ_ : ∀{el E} → {PE : VSet el} → (act : Action E vars) → (pspec : Spec vars PE) → Spec vars (E ∷ PE)
   []ₛₚ : Spec vars []
 
-variable
-  spec : Spec _ _
 
 
 
-_≡_all : ∀{n} → {PE : VSet {α} n} → System PE → System PE → Set α
+
+_≡_all : ∀{α n} → {PE : VSet {α} n} → System PE → System PE → Set α
 _≡_all {PE = []} sys nsys = ℓ↑ _ ⊤
 _≡_all {PE = x ∷ PE} sys nsys = fst sys ≡ fst nsys × (snd sys ≡ snd nsys all)
 
 
 
-Stut : (sys : System {α} vars) → (System {α} vars) → Set α
+Stut : ∀{α l vars} → (sys : System {α} {l} vars) → (System {α} vars) → Set α
 Stut sys nsys = sys ≡ nsys all
 
-TStut : (beh : (System {α} vars) ʷ) → (Set α) ʷ
+TStut : ∀{α l vars} → (beh : (System {α} {l} vars) ʷ) → (Set α) ʷ
 TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ beh $ (○ beh)
 
 infixr -20 _$ₛₚ_
-_$ₛₚ_ : (Spec {α} vars PE) → (pe : PE toUS) → (sys nsys : System vars) → Set α
+_$ₛₚ_ : ∀{α l vars k PE} → (Spec {α} {l} vars {sl = k} PE) → (pe : PE toUS) → (sys nsys : System vars) → Set α
 (act ∷ₛₚ spec $ₛₚ (e ←u)) sys nsys = cond act e sys × resp act e sys nsys
 (act ∷ₛₚ spec $ₛₚ (u→ pe)) sys nsys = (spec $ₛₚ pe) sys nsys
 ([]ₛₚ $ₛₚ ()) sys nsys
 
 
 infixr -20 _$ₛₚₜ_
-_$ₛₚₜ_ : (Spec {α} vars PE) → (pe : (PE toUS) ʷ) → (beh : (System vars) ʷ) → (Set α) ʷ
+_$ₛₚₜ_ : ∀{α l vars k PE} → (Spec {α} {l} vars {sl = k} PE) → (pe : (PE toUS) ʷ) → (beh : (System vars) ʷ) → (Set α) ʷ
 (spec $ₛₚₜ pe) beh = ⟨ spec $ₛₚ_ ⟩ $ pe $ beh $ ○ beh
 
 
-Restr : {PE : VSet el} → (spec : Spec {α} vars PE) → (beh : (System vars) ʷ) → (pe : (PE toUS) ʷ) → (Set α) ʷ
+Restr : ∀{α l vars k PE} → (spec : Spec {α} {l} vars {sl = k} PE) → (beh : (System vars) ʷ) → (pe : (PE toUS) ʷ) → (Set α) ʷ
 Restr {vars = vars} {PE = PE} spec beh pe = (spec $ₛₚₜ pe) beh ∨ TStut {vars = vars} beh
