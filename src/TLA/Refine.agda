@@ -21,7 +21,8 @@ record RefAction {α n k}{varsB : VSet {α} k} {varsA : VSet {α} n}
     RE : Set α
     ract : Action RE varsB
     par : (e : RE) → (sys : System varsB) → B
-    embed : (e : RE) → (sys : System varsB) → (nsys : System varsB)
+    gcond : (sys : System varsB) → Set α
+    embed : (e : RE) → (sys : System varsB) → (gcnd : gcond sys) → (nsys : System varsB)
             → cond ract e sys × resp ract e sys nsys
             → (cond actA) (par e sys) (refm sys) × (resp actA) (par e sys) (refm sys) (refm nsys)
 open RefAction public
@@ -67,6 +68,11 @@ exSpec (ref m∷ᵣₛₚ rspec) = (ract ref) ∷ₛₚ (exSpec rspec)
 exSpec (ref ∷ᵣₛₚ rspec) = (ract ref) ∷ₛₚ (exSpec rspec)
 exSpec []ᵣₛₚ = []ₛₚ
 
+exGcond : {refm : System varsB → System varsA} → RSpec {α = α} {varsB = varsB} {varsA = varsA} refm {el = el} PE spec
+          → (sys : System varsB) → VSet {α} el
+exGcond (ref m∷ᵣₛₚ rspec) sys = gcond ref sys ∷ exGcond rspec sys
+exGcond (ref ∷ᵣₛₚ rspec) sys = gcond ref sys ∷ exGcond rspec sys
+exGcond []ᵣₛₚ sys = []
 
 exSpecSt : {refm : System varsB → System varsA} → RSpecSt {varsB = varsB} {varsA = varsA} refm PE
               → Spec varsB PE
@@ -83,23 +89,25 @@ exPar (ref ∷ᵣₛₚ rspec) (e ←u) sys = par ref e sys ←u
 exPar (ref ∷ᵣₛₚ rspec) (u→ pe) sys = u→ exPar rspec pe sys
 
 
+
+
 refTheorem : {refm : System varsB → System varsA}
              → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
-              → (sys nsys : (System varsB)) → (pe : (PE toUS))
+              → (sys nsys : (System varsB)) → (pe : (PE toUS)) → exGcond rspec sys toPS
              → (exSpec rspec  $ₛₚ pe) sys nsys → (spec $ₛₚ (exPar rspec pe sys)) (refm sys) (refm nsys)
-refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (e ←u) rst = embed ref e sys nsys rst
-refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (u→ pe) rst = refTheorem rspec sys nsys pe rst
-refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (e ←u) rst = embed ref e sys nsys rst
-refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (u→ pe) rst = refTheorem rspec sys nsys pe rst
+refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (e ←u) (gcnd , gcnds) rst = embed ref e sys gcnd nsys rst
+refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (u→ pe) (gcnd , gcnds) rst = refTheorem rspec sys nsys pe gcnds rst
+refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (e ←u) (gcnd , gcnds) rst = embed ref e sys gcnd nsys rst
+refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (u→ pe) (gcnd , gcnds) rst = refTheorem rspec sys nsys pe gcnds rst
 refTheorem []ᵣₛₚ sys nsys () rst
 
 
 
 trefTheorem : {refm : System varsB → System varsA}
              → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
-             → (beh : (System varsB) ʷ) → (pe : (PE toUS) ʷ)
+             → (beh : (System varsB) ʷ) → (pe : (PE toUS) ʷ) → [ ⟨ (λ sys → exGcond rspec sys toPS ) ⟩ $ beh ]
              → [ ((exSpec rspec  $ₛₚₜ pe) beh) ⇒ ((spec $ₛₚₜ (⟨ exPar rspec ⟩ $ pe $ beh) ) (⟨ refm ⟩ $ beh)) ]
-trefTheorem rspec beh pe n rst = refTheorem rspec(beh n) (beh (suc n)) (pe n) rst
+trefTheorem rspec beh pe gcnd n rst = refTheorem rspec(beh n) (beh (suc n)) (pe n) (gcnd n) rst
 
 
 refTheoremSt : {refm : System varsB → System varsA}
@@ -132,15 +140,16 @@ GRestr {varsB = varsB} {varsA = varsA} {PE} {PB} {PEST} {spec = spec} {refm} rsp
     ) (split PE PEST pe)
     
 
+
 GRefTheorem : {refm : System varsB → System varsA}
   → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
   → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
-  → (sys nsys : (System varsB)) → (pe : ((PE ++ PEST) toUS))
+  → (sys nsys : (System varsB)) → (pe : ((PE ++ PEST) toUS)) → exGcond rspec sys toPS 
   → GRestr rspec rspecSt sys nsys pe
-GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe with split PE PEST pe
-GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe | x ←u
-  = refTheorem rspec sys nsys x
-GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe | u→_ x
+GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe gcnd with split PE PEST pe
+GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe gcnd | x ←u
+  = refTheorem rspec sys nsys x gcnd
+GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe gcnd | u→_ x
   = refTheoremSt rspecSt sys nsys x
 
 
@@ -148,7 +157,7 @@ GRefTheorem {PE = PE} {PEST = PEST} rspec rspecSt sys nsys pe | u→_ x
 TGRefTheorem : {refm : System varsB → System varsA}
   → (rspec : RSpec {varsB = varsB} {varsA = varsA} refm {PB = PB} PE spec)
   → (rspecSt : RSpecSt {varsB = varsB} {varsA = varsA} refm PEST )
-  → (beh : (System varsB) ʷ) → (pe : ((PE ++ PEST) toUS) ʷ)
+  → (beh : (System varsB) ʷ) → (pe : ((PE ++ PEST) toUS) ʷ) → [ ⟨ (λ sys → exGcond rspec sys toPS ) ⟩ $ beh ]
   → [ ⟨ GRestr rspec rspecSt ⟩ $ beh $ ○ beh $ pe ]
-TGRefTheorem rspec rspecSt beh pe n = GRefTheorem rspec rspecSt (beh n) (beh (suc n)) (pe n)
+TGRefTheorem rspec rspecSt beh pe gcnd n = GRefTheorem rspec rspecSt (beh n) (beh (suc n)) (pe n) (gcnd n)
 
