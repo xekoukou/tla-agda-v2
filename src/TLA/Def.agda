@@ -55,6 +55,9 @@ split (E ∷ PE) PB (u→ x)
 
 System = _toPS
 
+_≡_all : ∀{α n} → {PE : VSet {α} n} → System PE → System PE → Set α
+_≡_all {PE = []} sys nsys = ℓ↑ _ ⊤
+_≡_all {PE = x ∷ PE} sys nsys = fst sys ≡ fst nsys × (snd sys ≡ snd nsys all)
 
 
 
@@ -74,6 +77,9 @@ record ConAction {α n}  {E : Set α} {vars : VSet {α} n} (act : Action E vars)
 open ConAction public
 
 
+stAction : ∀{α n} → (vars : VSet {α} n) → Action (ℓ↑ _ ⊤) vars
+cond (stAction vars) e sys = ℓ↑ _ ⊤
+resp (stAction vars) e sys nsys = sys ≡ nsys all
 
 
 infixr 5 _∷ₛₚ_
@@ -82,20 +88,13 @@ data Spec {α n} (vars : VSet {α} n) : ∀{sl} → (PE : VSet {α} sl) → Set 
   []ₛₚ : Spec vars []
 
 
+_++ₛₚ_ : ∀{α n sl esl} → {vars : VSet {α} n} → {PE : VSet {α} sl} → {PEST : VSet {α} esl}
+         → Spec vars PE → Spec vars PEST
+         → Spec vars (PE ++ PEST)
+(act ∷ₛₚ specA) ++ₛₚ specB = act ∷ₛₚ (specA ++ₛₚ specB)
+[]ₛₚ ++ₛₚ specB = specB
 
 
-
-_≡_all : ∀{α n} → {PE : VSet {α} n} → System PE → System PE → Set α
-_≡_all {PE = []} sys nsys = ℓ↑ _ ⊤
-_≡_all {PE = x ∷ PE} sys nsys = fst sys ≡ fst nsys × (snd sys ≡ snd nsys all)
-
-
-
-Stut : ∀{α l vars} → (sys : System {α} {l} vars) → (System {α} vars) → Set α
-Stut sys nsys = sys ≡ nsys all
-
-TStut : ∀{α l vars} → (beh : (System {α} {l} vars) ʷ) → (Set α) ʷ
-TStut {vars = vars} beh = ⟨ Stut {vars = vars} ⟩ $ beh $ (○ beh)
 
 infixr -20 _$ₛₚ_
 _$ₛₚ_ : ∀{α l vars k PE} → (Spec {α} {l} vars {sl = k} PE) → (pe : PE toUS) → (sys nsys : System vars) → Set α
@@ -107,7 +106,3 @@ _$ₛₚ_ : ∀{α l vars k PE} → (Spec {α} {l} vars {sl = k} PE) → (pe : P
 infixr -20 _$ₛₚₜ_
 _$ₛₚₜ_ : ∀{α l vars k PE} → (Spec {α} {l} vars {sl = k} PE) → (pe : (PE toUS) ʷ) → (beh : (System vars) ʷ) → (Set α) ʷ
 (spec $ₛₚₜ pe) beh = ⟨ spec $ₛₚ_ ⟩ $ pe $ beh $ ○ beh
-
-
-Restr : ∀{α l vars k PE} → (spec : Spec {α} {l} vars {sl = k} PE) → (beh : (System vars) ʷ) → (pe : (PE toUS) ʷ) → (Set α) ʷ
-Restr {vars = vars} {PE = PE} spec beh pe = (spec $ₛₚₜ pe) beh ∨ TStut {vars = vars} beh
