@@ -28,17 +28,6 @@ record RefAction {α n k}{varsB : VSet {α} k} {varsA : VSet {α} n}
 open RefAction public
 
 
-record RefStAction {α n k}{varsB : VSet {α} k} {varsA : VSet {α} n} 
-                   (refm : System varsB → System varsA) : Set (lsuc α) where
-  field
-    RE : Set α
-    ract : Action RE varsB
-    isConst : (e : RE) → (sys : System varsB) → (nsys : System varsB)
-            → cond ract e sys × resp ract e sys nsys
-            → refm sys ≡ refm nsys all
-open RefStAction public
-
-
 
 infixr 5 _∷ᵣₛₚ_
 infixr 5 _m∷ᵣₛₚ_
