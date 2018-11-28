@@ -77,9 +77,14 @@ record ConAction {α n}  {E : Set α} {vars : VSet {α} n} (act : Action E vars)
 open ConAction public
 
 
-stAction : ∀{α n} → (vars : VSet {α} n) → Action (ℓ↑ _ ⊤) vars
-cond (stAction vars) e sys = ℓ↑ _ ⊤
-resp (stAction vars) e sys nsys = sys ≡ nsys all
+stAction : ∀{n} → {vars : VSet n} → Action ⊤ vars
+cond stAction e sys = ⊤
+resp stAction e sys nsys = sys ≡ nsys all
+
+
+stAction′ : ∀{α n} → {vars : VSet {α} n} → Action (ℓ↑ _ ⊤) vars
+cond stAction′ e sys = ℓ↑ _ ⊤
+resp stAction′ e sys nsys = sys ≡ nsys all
 
 
 infixr 5 _∷ₛₚ_
