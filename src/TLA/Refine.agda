@@ -4,6 +4,7 @@ open import Level renaming (zero to lzero ; suc to lsuc ; Lift to ℓ↑)
 open import Data.Product
 open import Relation.Binary.PropositionalEquality hiding ([_])
 open import Data.Nat
+open import Data.Unit
 open import Data.Sum
 open import Data.Vec hiding ([_] ; split)
 
@@ -26,6 +27,28 @@ record RefAction {α n k}{varsB : VSet {α} k} {varsA : VSet {α} n}
             → cond ract e sys × resp ract e sys nsys
             → (cond actA) (par e sys) (refm sys) × (resp actA) (par e sys) (refm sys) (refm nsys)
 open RefAction public
+
+
+
+
+refStAction : ∀{n k} → {varsB : VSet n} → {varsA : VSet k}
+              → (refm : System varsB → System varsA) → RefAction refm stAction
+RE (refStAction refm) = ⊤
+ract (refStAction refm) = stAction
+par (refStAction refm) e sys = tt
+gcond (refStAction refm) e sys = ⊤
+embed (refStAction refm) e sys gcnd nsys (fst , snd)
+  = tt , subst (λ z → refm sys ≡ refm z all) (pEq⇒Eq snd) refl-all
+
+
+refStAction′ : ∀{α n k} → {varsB : VSet {α} n} → {varsA : VSet {α} k}
+              → (refm : System varsB → System varsA) → RefAction refm stAction′
+RE (refStAction′ refm) = ℓ↑ _ ⊤
+ract (refStAction′ refm) = stAction′
+par (refStAction′ refm) e sys = lift tt
+gcond (refStAction′ refm) e sys = ℓ↑ _ ⊤
+embed (refStAction′ refm) e sys gcnd nsys (fst , snd)
+  = (lift tt) , subst (λ z → refm sys ≡ refm z all) (pEq⇒Eq snd) refl-all
 
 
 
@@ -69,20 +92,20 @@ exPar (ref ∷ᵣₛₚ rspec) (e ←u) sys = par ref e sys ←u
 exPar (ref ∷ᵣₛₚ rspec) (u→ pe) sys = u→ exPar rspec pe sys
 
 
-refTheorem : ∀{α lb la varsB varsA el PE bl PB spec} → {refm : System {α} {lb} varsB → System {α} {la} varsA}
+refTh : ∀{α lb la varsB varsA el PE bl PB spec} → {refm : System {α} {lb} varsB → System {α} {la} varsA}
              → (rspec : RSpec refm {el = el} {bl = bl} {PB = PB} PE spec)
              → (sys nsys : (System varsB)) → (pe : (PE toUS)) → exGcond rspec pe sys
              → (exSpec rspec  $ₛₚ pe) sys nsys → (spec $ₛₚ (exPar rspec pe sys)) (refm sys) (refm nsys)
-refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (e ←u) gcnd rst = embed ref e sys gcnd nsys rst
-refTheorem (ref m∷ᵣₛₚ rspec) sys nsys (u→ pe) gcnds rst = refTheorem rspec sys nsys pe gcnds rst
-refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (e ←u) gcnd rst = embed ref e sys gcnd nsys rst
-refTheorem (ref ∷ᵣₛₚ rspec) sys nsys (u→ pe) gcnds rst = refTheorem rspec sys nsys pe gcnds rst
-refTheorem []ᵣₛₚ sys nsys () rst
+refTh (ref m∷ᵣₛₚ rspec) sys nsys (e ←u) gcnd rst = embed ref e sys gcnd nsys rst
+refTh (ref m∷ᵣₛₚ rspec) sys nsys (u→ pe) gcnds rst = refTh rspec sys nsys pe gcnds rst
+refTh (ref ∷ᵣₛₚ rspec) sys nsys (e ←u) gcnd rst = embed ref e sys gcnd nsys rst
+refTh (ref ∷ᵣₛₚ rspec) sys nsys (u→ pe) gcnds rst = refTh rspec sys nsys pe gcnds rst
+refTh []ᵣₛₚ sys nsys () rst
 
 
 
-trefTheorem : ∀{α lb la varsB varsA el PE bl PB spec} → {refm : System {α} {lb} varsB → System {α} {la} varsA}
+trefTh : ∀{α lb la varsB varsA el PE bl PB spec} → {refm : System {α} {lb} varsB → System {α} {la} varsA}
              → (rspec : RSpec refm {el = el} {bl = bl} {PB = PB} PE spec)
              → (beh : (System varsB) ʷ) → (pe : (PE toUS) ʷ) → [ ⟨ exGcond rspec ⟩ $ pe $ beh ]
              → [ ((exSpec rspec  $ₛₚₜ pe) beh) ⇒ ((spec $ₛₚₜ (⟨ exPar rspec ⟩ $ pe $ beh) ) (⟨ refm ⟩ $ beh)) ]
-trefTheorem rspec beh pe gcnd n rst = refTheorem rspec(beh n) (beh (suc n)) (pe n) (gcnd n) rst
+trefTh rspec beh pe gcnd n rst = refTh rspec(beh n) (beh (suc n)) (pe n) (gcnd n) rst
