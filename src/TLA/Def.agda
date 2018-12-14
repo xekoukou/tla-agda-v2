@@ -79,12 +79,12 @@ open ConAction public
 
 stAction : ∀{n} → {vars : VSet n} → Action ⊤ vars
 cond stAction e sys = ⊤
-resp stAction e sys nsys = sys ≡ nsys all
+resp stAction e sys nsys = nsys ≡ sys
 
 
 stAction′ : ∀{α n} → {vars : VSet {α} n} → Action (ℓ↑ _ ⊤) vars
 cond stAction′ e sys = ℓ↑ _ ⊤
-resp stAction′ e sys nsys = sys ≡ nsys all
+resp stAction′ e sys nsys = nsys ≡ sys
 
 
 infixr 5 _∷ₛₚ_

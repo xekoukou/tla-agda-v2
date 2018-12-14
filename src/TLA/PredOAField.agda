@@ -48,12 +48,12 @@ specP∅ P = act¬P P ∷ₛₚ []ₛₚ
 
 RefActP : ∀{α n} → {varsA : VSet {α} n} 
           → (P : (sys nsys : System varsA) → Set α) → Set (lsuc α)
-RefActP P = RefAction (λ x → x) (actP P)
+RefActP P = RefAction (λ x → x) (λ _ → ℓ↑ _ ⊤) (actP P)
 
 
 RefAct¬P : ∀{α n} → {varsA : VSet {α} n} 
            → (P : (sys nsys : System varsA) → Set α) → Set (lsuc α)
-RefAct¬P P = RefAction (λ x → x) (act¬P P)
+RefAct¬P P = RefAction (λ x → x) (λ _ → ℓ↑ _ ⊤) (act¬P P)
 
 
 record SetoidWithSym c ℓ : Set (lsuc (c ⊔ ℓ)) where
@@ -77,7 +77,7 @@ sym (specSetoidWS spec) (pe , a , b) = pe , b , a
 
 
 cndP : ∀{α k el} → {vars : VSet {α} k} → {PE : VSet {α} el} → (P : (sys nsys : System vars) → Set α)
-       → RSpec (λ x → x) PE (specP P) → (sys nsys : System vars) → Set α
+       → RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) PE (specP P) → (sys nsys : System vars) → Set α
 cndP P (ref m∷ᵣₛₚ rspec) sys nsys
   = let act = ract ref
     in (∃ λ pe → (cond act pe sys × resp act pe sys nsys)) ⊎ cndP P rspec sys nsys
@@ -87,7 +87,7 @@ cndP P (ref ∷ᵣₛₚ rspec) sys nsys
 
 
 cnd¬P : ∀{α k el} → {vars : VSet {α} k} → {PE : VSet {α} el} → (P : (sys nsys : System vars) → Set α)
-        → RSpec (λ x → x) PE (specP P) → (sys nsys : System vars) → Set α
+        → RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) PE (specP P) → (sys nsys : System vars) → Set α
 cnd¬P P (ref m∷ᵣₛₚ rspec) sys nsys = cnd¬P P rspec sys nsys
 cnd¬P P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) sys nsys
   = let act = ract ref
@@ -97,30 +97,27 @@ cnd¬P P (_ ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) sys nsys
      in ∃ λ pe → (cond act pe sys × resp act pe sys nsys)
 
 
--- We should never have to use gcnd
 P⇒cndP : ∀{α l vars el PE}  → (P : (sys nsys : System {_} {l} vars) → Set α)
-     → (rspec : RSpec (λ x → x) {el = el} PE (specP P)) → (pe : PE toUS) → (sys nsys : System vars)
-     → exGcond rspec pe sys
+     → (rspec : RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) {el = el} PE (specP P)) → (pe : PE toUS) → (sys nsys : System vars)
      → ((exSpec rspec) $ₛₚ pe) sys nsys → P sys nsys → cndP P rspec sys nsys
-P⇒cndP P (ref m∷ᵣₛₚ rspec) (e ←u) sys nsys gcnd rst p = (e , rst) ←u
-P⇒cndP P (ref m∷ᵣₛₚ rspec) (u→ pe) sys nsys gcnd rst p = u→ P⇒cndP P rspec pe sys nsys gcnd rst p
-P⇒cndP P (pref ∷ᵣₛₚ rspec) (e ←u) sys nsys gcnd rst p = e , rst
-P⇒cndP P rspec@(_ ∷ᵣₛₚ _) (u→ pe) sys nsys gcnd rst p with refTh rspec sys nsys (u→ pe) gcnd rst
-P⇒cndP P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) (u→ (e ←u)) sys nsys gcnd rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒cndP P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) (u→ (u→ pe)) sys nsys gcnd rst p | r
-  = P⇒cndP P (pref ∷ᵣₛₚ rspec) (u→ pe) sys nsys gcnd rst p
-P⇒cndP P (pref ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) (u→ (e ←u)) sys nsys gcnd rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒cndP P (pref ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) (u→ (u→ (lift ()))) sys nsys gcnd rst p | r 
+P⇒cndP P (ref m∷ᵣₛₚ rspec) (e ←u) sys nsys rst p = (e , rst) ←u
+P⇒cndP P (ref m∷ᵣₛₚ rspec) (u→ pe) sys nsys rst p = u→ P⇒cndP P rspec pe sys nsys rst p
+P⇒cndP P (pref ∷ᵣₛₚ rspec) (e ←u) sys nsys rst p = e , rst
+P⇒cndP P rspec@(_ ∷ᵣₛₚ _) (u→ pe) sys nsys rst p with refTh rspec sys nsys (u→ pe) (ℓ↑.lift tt) rst
+P⇒cndP P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) (u→ (e ←u)) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
+P⇒cndP P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) (u→ (u→ pe)) sys nsys rst p | r
+  = P⇒cndP P (pref ∷ᵣₛₚ rspec) (u→ pe) sys nsys rst p
+P⇒cndP P (pref ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) (u→ (e ←u)) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
+P⇒cndP P (pref ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) (u→ (u→ (lift ()))) sys nsys rst p | r 
 
 
 P⇒∅ : ∀{α l vars el PE}  → (P : (sys nsys : System {_} {l} vars) → Set α)
-     → (rspec : RSpec (λ x → x) {el = el} PE (specP∅ P)) → (pe : PE toUS) → (sys nsys : System vars)
-     → exGcond rspec pe sys
+     → (rspec : RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) {el = el} PE (specP∅ P)) → (pe : PE toUS) → (sys nsys : System vars)
      → ((exSpec rspec) $ₛₚ pe) sys nsys → P sys nsys → ⊥
-P⇒∅ P rspec pe sys nsys gcnd rst p with refTh rspec sys nsys pe gcnd rst
-P⇒∅ P (ref m∷ᵣₛₚ rspec) (e ←u) sys nsys gcnd rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒∅ P (ref m∷ᵣₛₚ rspec) (u→ pe) sys nsys gcnd rst p | r = P⇒∅ P rspec pe sys nsys gcnd rst p
-P⇒∅ P (ref ∷ᵣₛₚ []ᵣₛₚ) (e ←u) sys nsys gcnd rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒∅ P (ref ∷ᵣₛₚ []ᵣₛₚ) (u→ (lift ())) sys nsys gcnd rst p | r 
+P⇒∅ P rspec pe sys nsys rst p with refTh rspec sys nsys pe (ℓ↑.lift tt) rst
+P⇒∅ P (ref m∷ᵣₛₚ rspec) (e ←u) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
+P⇒∅ P (ref m∷ᵣₛₚ rspec) (u→ pe) sys nsys rst p | r = P⇒∅ P rspec pe sys nsys rst p
+P⇒∅ P (ref ∷ᵣₛₚ []ᵣₛₚ) (e ←u) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
+P⇒∅ P (ref ∷ᵣₛₚ []ᵣₛₚ) (u→ (lift ())) sys nsys rst p | r 
 
 
