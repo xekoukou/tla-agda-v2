@@ -4,14 +4,14 @@ open import TLA.Def
 open import Data.Fin hiding (lift)
 open import Data.Unit using (⊤ ; tt)
 open import Level renaming (Lift to ℓ↑ ; lift to lift ; suc to lsuc ; zero to lzero)
-open import Data.Vec
+open import Data.List hiding (all)
 open import Relation.Nullary
 open import Data.Empty
 open import Data.Nat hiding (zero ; suc)
 open import Relation.Binary.PropositionalEquality
 open import Data.Product renaming (proj₁ to fst ; proj₂ to snd)
 
-proj : ∀{α n} → {PE : VSet {α} n} → System PE → (i : Fin n) → lookup i PE 
+proj : ∀{α} → {PE : LSet {α}} → System PE → (i : Fin (length PE)) → lookup PE i
 proj {PE = []} sys ()
 proj {PE = E ∷ PE} sys zero = fst sys
 proj {PE = E ∷ PE} sys (suc i) = proj (snd sys) i
@@ -23,12 +23,12 @@ _except_!=_ sys (suc i) nv = fst sys , snd sys except i != nv
 
 -- _≡_all in TLA.Def to pointwise have equality for all.
 
-refl-all : ∀{α n} → {varsB : VSet {α} n} → {sys : System varsB}
+refl-all : ∀{α} → {varsB : LSet {α}} → {sys : System varsB}
            → sys ≡ sys all
 refl-all {varsB = []} {sys} = lift tt
 refl-all {varsB = x ∷ varsB} {sys} = refl , refl-all {sys = snd sys}
 
-pEq⇒Eq : ∀{α n} → {varsB : VSet {α} n} → {sys nsys : System varsB}
+pEq⇒Eq : ∀{α} → {varsB : LSet {α}} → {sys nsys : System varsB}
               → sys ≡ nsys all → sys ≡ nsys
 pEq⇒Eq {varsB = []} {lift tt} {lift tt} eq = refl
 pEq⇒Eq {varsB = _ ∷ varsB} {_ , sys} {x , nsys} (refl , sn) = cong (x ,_) (pEq⇒Eq sn)

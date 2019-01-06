@@ -14,9 +14,11 @@ open import Data.Fin.Permutation
 open import TLA.Def
 open import TLA.Refine
 open import Data.List
+open import Data.List.Any
 open import Data.Vec
 open import Data.Sum
 open import Data.Product
+open import Function
 open import Level renaming (zero to lzero ; suc to lsuc ; Lift to ℓ↑)
 
 
@@ -30,30 +32,35 @@ open import Level renaming (zero to lzero ; suc to lsuc ; Lift to ℓ↑)
 -- conditions. We find the constrains with P⇒cndP or we prove that our original argument was impossible with P⇒∅
 
 
-actP : ∀{α n} → {vars : VSet {α} n} → (P : (sys nsys : System vars) → Set α) → Action (ℓ↑ _ ⊤) vars
+-- Another use of this is to prove Inductive Properties G sys by setting the predicate P to
+-- G sys → G nsys
+
+actP : ∀{α} → {vars : LSet {α}} → (P : (sys nsys : System vars) → Set α) → Action vars
+E (actP P) = ℓ↑ _ ⊤
 cond (actP P) e sys = ℓ↑ _ ⊤
 resp (actP P) e sys nsys = P sys nsys
 
 
-act¬P : ∀{α n} → {vars : VSet {α} n} → (P : (sys nsys : System vars) → Set α) → Action (ℓ↑ _ ⊤) vars
+act¬P : ∀{α} → {vars : LSet {α}} → (P : (sys nsys : System vars) → Set α) → Action vars
+E (act¬P P) = ℓ↑ _ ⊤
 cond (act¬P P) e sys = ℓ↑ _ ⊤
 resp (act¬P P) e sys nsys = ¬ P sys nsys
 
+-- The order of actP is important for the definition of cndP.
+specP : ∀{α} → {vars : LSet {α}} → (P : (sys nsys : System vars) → Set α) → Spec vars
+specP P = actP P ∷ act¬P P ∷ []
 
-specP : ∀{α n} → {vars : VSet {α} n} → (P : (sys nsys : System vars) → Set α) → Spec vars (V⊤′ 2)
-specP P = actP P ∷ₛₚ act¬P P ∷ₛₚ []ₛₚ
+specP∅ : ∀{α} → {vars : LSet {α}} → (P : (sys nsys : System vars) → Set α) → Spec vars
+specP∅ P = act¬P P ∷ []
 
-specP∅ : ∀{α n} → {vars : VSet {α} n} → (P : (sys nsys : System vars) → Set α) → Spec vars (V⊤′ 1)
-specP∅ P = act¬P P ∷ₛₚ []ₛₚ
-
-RefActP : ∀{α n} → {varsA : VSet {α} n} 
+RefActP : ∀{α} → {varsA : LSet {α}} → ∀ actB
           → (P : (sys nsys : System varsA) → Set α) → Set (lsuc α)
-RefActP P = RefAction (λ x → x) (λ _ → ℓ↑ _ ⊤) (actP P)
+RefActP actB P = RefAction (λ x → x) (λ _ → ℓ↑ _ ⊤) actB (actP P)
 
 
-RefAct¬P : ∀{α n} → {varsA : VSet {α} n} 
+RefAct¬P : ∀{α} → {varsA : LSet {α}} → ∀ actB
            → (P : (sys nsys : System varsA) → Set α) → Set (lsuc α)
-RefAct¬P P = RefAction (λ x → x) (λ _ → ℓ↑ _ ⊤) (act¬P P)
+RefAct¬P actB P = RefAction (λ x → x) (λ _ → ℓ↑ _ ⊤) actB (act¬P P)
 
 
 record SetoidWithSym c ℓ : Set (lsuc (c ⊔ ℓ)) where
@@ -66,58 +73,56 @@ record SetoidWithSym c ℓ : Set (lsuc (c ⊔ ℓ)) where
 
 open SetoidWithSym
 
-specSetoidWS : ∀{α n sl} → {vars : VSet {α} n} → {PE : VSet {α} sl} → Spec vars PE → SetoidWithSym _ _
+specSetoidWS : ∀{α} → {vars : LSet {α}} → Spec vars → SetoidWithSym _ _
 Carrier (specSetoidWS {vars = vars} spec) = System vars × System vars
-_≈_ (specSetoidWS {vars = vars} {PE = PE} spec) (sysA , nsysA) (sysB , nsysB)
-  = Σ (PE toUS) λ pe → (spec $ₛₚ pe) sysA nsysA × (spec $ₛₚ pe) sysB nsysB
+_≈_ (specSetoidWS {vars = vars} spec) (sysA , nsysA) (sysB , nsysB)
+  = Σ (PE spec toUS) λ pe → (spec $ₛₚ pe) sysA nsysA × (spec $ₛₚ pe) sysB nsysB
 sym (specSetoidWS spec) (pe , a , b) = pe , b , a
 
 
 
 
 
-cndP : ∀{α k el} → {vars : VSet {α} k} → {PE : VSet {α} el} → (P : (sys nsys : System vars) → Set α)
-       → RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) PE (specP P) → (sys nsys : System vars) → Set α
-cndP P (ref m∷ᵣₛₚ rspec) sys nsys
-  = let act = ract ref
-    in (∃ λ pe → (cond act pe sys × resp act pe sys nsys)) ⊎ cndP P rspec sys nsys
-cndP P (ref ∷ᵣₛₚ rspec) sys nsys
-  = let act = ract ref
-    in ∃ λ pe → cond act pe sys × resp act pe sys nsys
+cndP : ∀{α} → {vars : LSet {α}} → ∀{specB} → (P : (sys nsys : System vars) → Set α)
+       → RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) (specP P) specB → (sys nsys : System vars) → Set α
+cndP P []ᵣ sys nsys = ℓ↑ _ ⊥
+cndP P (_∷ᵣ_ {act = act} x rspec) sys nsys
+  = case (bel x) of
+      λ { (here _) → let ra = act
+                     in (∃ λ pe → (cond ra pe sys × resp ra pe sys nsys)) ⊎ cndP P rspec sys nsys
+        ; (there _) → cndP P rspec sys nsys}
 
 
-cnd¬P : ∀{α k el} → {vars : VSet {α} k} → {PE : VSet {α} el} → (P : (sys nsys : System vars) → Set α)
-        → RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) PE (specP P) → (sys nsys : System vars) → Set α
-cnd¬P P (ref m∷ᵣₛₚ rspec) sys nsys = cnd¬P P rspec sys nsys
-cnd¬P P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) sys nsys
-  = let act = ract ref
-    in (∃ λ pe → (cond act pe sys × resp act pe sys nsys)) ⊎ cnd¬P P (pref ∷ᵣₛₚ rspec) sys nsys
-cnd¬P P (_ ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) sys nsys
-  =  let act = ract ref
-     in ∃ λ pe → (cond act pe sys × resp act pe sys nsys)
+cnd¬P : ∀{α} → {vars : LSet {α}} → ∀{specB} → (P : (sys nsys : System vars) → Set α)
+       → RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) (specP P) specB → (sys nsys : System vars) → Set α
+cnd¬P P []ᵣ sys nsys = ℓ↑ _ ⊥
+cnd¬P P (_∷ᵣ_ {act = act} x rspec) sys nsys
+  = case (bel x) of
+      λ { (there _) → let ra = act
+                     in (∃ λ pe → (cond ra pe sys × resp ra pe sys nsys)) ⊎ cndP P rspec sys nsys
+        ; (here _) → cndP P rspec sys nsys}
 
 
-P⇒cndP : ∀{α l vars el PE}  → (P : (sys nsys : System {_} {l} vars) → Set α)
-     → (rspec : RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) {el = el} PE (specP P)) → (pe : PE toUS) → (sys nsys : System vars)
-     → ((exSpec rspec) $ₛₚ pe) sys nsys → P sys nsys → cndP P rspec sys nsys
-P⇒cndP P (ref m∷ᵣₛₚ rspec) (e ←u) sys nsys rst p = (e , rst) ←u
-P⇒cndP P (ref m∷ᵣₛₚ rspec) (u→ pe) sys nsys rst p = u→ P⇒cndP P rspec pe sys nsys rst p
-P⇒cndP P (pref ∷ᵣₛₚ rspec) (e ←u) sys nsys rst p = e , rst
-P⇒cndP P rspec@(_ ∷ᵣₛₚ _) (u→ pe) sys nsys rst p with refTh rspec sys nsys (u→ pe) (ℓ↑.lift tt) rst
-P⇒cndP P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) (u→ (e ←u)) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒cndP P (pref ∷ᵣₛₚ (ref m∷ᵣₛₚ rspec)) (u→ (u→ pe)) sys nsys rst p | r
-  = P⇒cndP P (pref ∷ᵣₛₚ rspec) (u→ pe) sys nsys rst p
-P⇒cndP P (pref ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) (u→ (e ←u)) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒cndP P (pref ∷ᵣₛₚ (ref ∷ᵣₛₚ []ᵣₛₚ)) (u→ (u→ (lift ()))) sys nsys rst p | r 
 
 
-P⇒∅ : ∀{α l vars el PE}  → (P : (sys nsys : System {_} {l} vars) → Set α)
-     → (rspec : RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) {el = el} PE (specP∅ P)) → (pe : PE toUS) → (sys nsys : System vars)
-     → ((exSpec rspec) $ₛₚ pe) sys nsys → P sys nsys → ⊥
-P⇒∅ P rspec pe sys nsys rst p with refTh rspec sys nsys pe (ℓ↑.lift tt) rst
-P⇒∅ P (ref m∷ᵣₛₚ rspec) (e ←u) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒∅ P (ref m∷ᵣₛₚ rspec) (u→ pe) sys nsys rst p | r = P⇒∅ P rspec pe sys nsys rst p
-P⇒∅ P (ref ∷ᵣₛₚ []ᵣₛₚ) (e ←u) sys nsys rst p | _ , ¬p = ⊥-elim (¬p p)
-P⇒∅ P (ref ∷ᵣₛₚ []ᵣₛₚ) (u→ (lift ())) sys nsys rst p | r 
+P⇒cndP : ∀{α vars}  → ∀{specB} → (P : (sys nsys : System {_} vars) → Set α)
+     → (rspec : RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) (specP P) specB) → (pe : PE specB toUS) → (sys nsys : System vars)
+     → (specB $ₛₚ pe) sys nsys → P sys nsys → cndP P rspec sys nsys
+P⇒cndP P []ᵣ (ℓ↑.lift ()) sys nsys rst p
+P⇒cndP P (rsa act (here px) ref ∷ᵣ rspec) (e ←u) sys nsys rst p = (e , rst) ←u
+P⇒cndP P (rsa .(act¬P P) (there (here refl)) ref ∷ᵣ rspec) (e ←u) sys nsys rst p = ⊥-elim (proj₂ (embed ref e sys nsys (ℓ↑.lift tt) rst) p)
+P⇒cndP P (rsa act (there (there ())) ref ∷ᵣ rspec) (e ←u) sys nsys rst p
+P⇒cndP P (rsa act (here px) ref ∷ᵣ rspec) (u→ pe) sys nsys rst p = u→ P⇒cndP P rspec pe sys nsys rst p
+P⇒cndP P (rsa act (there bel) ref ∷ᵣ rspec) (u→ pe) sys nsys rst p = P⇒cndP P rspec pe sys nsys rst p
+
+
+P⇒∅ : ∀{α vars}  → ∀{specB} → (P : (sys nsys : System {_} vars) → Set α)
+      → (rspec : RSpec (λ x → x) (λ _ → ℓ↑ _ ⊤) (specP∅ P) specB) → (pe : PE specB toUS) → (sys nsys : System vars)
+      → (specB $ₛₚ pe) sys nsys → P sys nsys → ⊥
+P⇒∅ P []ᵣ (ℓ↑.lift ()) sys nsys rst p
+P⇒∅ P (rsa .(act¬P P) (here refl) ref ∷ᵣ rspec) (e ←u) sys nsys rst p = proj₂ (embed ref e sys nsys (ℓ↑.lift tt) rst) p
+P⇒∅ P (rsa act (there ()) ref ∷ᵣ rspec) (e ←u) sys nsys rst p
+P⇒∅ P (rsa act bel ref ∷ᵣ rspec) (u→ pe) sys nsys rst p = P⇒∅ P rspec pe sys nsys rst p
+
 
 
